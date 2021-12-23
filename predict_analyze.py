@@ -43,11 +43,13 @@ video_list = [
     "video_0019",
 ]
 
+# load prediction result
 data = []
 for file in result_file_list:
     with open(file, "rb") as f:
         data+=pickle.load(f)
 
+# get final prediction result for each pedestrian
 result_dict = pd.DataFrame({"prob":[],"result":[]})
 for buf in data:
     if buf.get("ped_id") not in result_dict.index:
@@ -56,9 +58,9 @@ for buf in data:
     else:
         result_dict.at[buf.get("ped_id"), "result"] = buf.get("res")
 
+# get annotation
 annotation_len_list = []
 exp_len_list = []
-
 for video in video_list:
     annt = getXmlRoot("/home/kuriatsu/Documents/data/annotations/{}/{}_annt.xml".format("set03", video))
     attrib = getXmlRoot("/home/kuriatsu/Documents/data/annotations_attributes/{}/{}_attributes.xml".format("set03", video))
@@ -74,16 +76,25 @@ for video in video_list:
     del annt
     del attrib
 
+# visualize annotation length
 fig, axes = plt.subplots()
 sns.histplot(annotation_len_list, binwidth=1, color="tomato", ax=axes)
 sns.histplot(exp_len_list, binwidth=1, color="steelblue", ax=axes)
 plt.show()
 
+# visualize prediction result
 melted_df = result_dict.dropna().melt(value_vars=["prob", "result"], var_name="type", value_name="value")
 sns.histplot(data=melted_df, binwidth=0.05, x="value", hue="type")
 plt.show()
 
-correct_count = 0
-for result in result_dict.iterrows():
-    correct_count+=(result[1]["prob"] < 0.5 and result[1]["result"] < 0.5) or (result[1]["prob"] >= 0.5 and result[1]["result"] >= 0.5)
-acc = correct_count/len(result_dict.index)
+# calc accuracy
+acc_list = {}
+
+for thres in range(0.0, 1.0, 0.1):
+    correct_count = 0
+    for result in result_dict.iterrows():
+        correct_count+=(result[1]["prob"] < thres and result[1]["result"] < thres) or (result[1]["prob"] >= thres and result[1]["result"] >= thres)
+    acc_list[thres] = correct_count/len(result_dict.index)
+
+sns.plot(x=acc_list.keys(), y=acc_list.values())
+plt.show()
