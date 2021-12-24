@@ -258,11 +258,11 @@ if __name__ == '__main__':
     argparser.add_argument(
         '--video', '-v',
         metavar='VIDEO',
-        default='/media/ssd/PIE_data/extracted_data/clips')
+        default='/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/clips_set04')
     argparser.add_argument(
         '--pickle',
         metavar='PICKLE',
-        default='/media/ssd/PIE_data/extracted_data/data.pickle')
+        default='/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/data.pickle')
     argparser.add_argument(
         '--rate_offset',
         metavar='OFFSET',
@@ -283,7 +283,7 @@ if __name__ == '__main__':
     argparser.add_argument(
         '--icon_path',
         metavar='/path/to/icon/files',
-        default='/home/kuriatsu/share/PIE_icons')
+        default='/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons')
     argparser.add_argument(
         '--prob_thres_pedestrian',
         metavar='RATE',
