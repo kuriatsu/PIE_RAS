@@ -98,7 +98,6 @@ def getAnchor(track, start_frame, end_frame, crop_value, crop_rate):
                     ]
                 break
         anchor_list.append(anchor)
-
     return anchor_list
 
 
@@ -166,6 +165,7 @@ expand_rate = 1.0 / crop_rate
 #      "future_traj" : str,
 #      "critical_point" : float,
 #      "crossing_point" : int,
+#      "start_point" : int,
 #     }
 # }
 database = {}
