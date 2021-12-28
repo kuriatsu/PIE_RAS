@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 import cv2
 import pickle
+import glob
 import numpy as np
+import time
 
 class PIEVisualize():
     def __init__(self):
@@ -24,16 +26,16 @@ class PIEVisualize():
         self.is_checked = False
 
         self.prepareEventHandler()
-        self.prepareIcon("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons")
+        self.prepareIcon("/run/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons")
         cv2.namedWindow("hmi", cv2.WND_PROP_FULLSCREEN)
-        cv2.setWindowProperty("hmi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        cv2.namedWindow("windshield", cv2.WND_PROP_FULLSCREEN)
-        cv2.setWindowProperty("windshield", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        # cv2.setWindowProperty("hmi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        # cv2.namedWindow("windshield", cv2.WND_PROP_FULLSCREEN)
+        # cv2.setWindowProperty("windshield", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 
-    def getVideoInfo(self, filename):
+    def getVideo(self, filename):
         try:
-            video = cv2.VideoCapture(args.video)
+            video = cv2.VideoCapture(filename)
 
         except:
             print('cannot open video')
@@ -46,17 +48,22 @@ class PIEVisualize():
         # calc image-crop-region crop -> expaned to original frame geometry
         offset_yt = self.image_res[0] * ((1.0 - self.hmi_crop_rate) * 0.5 + self.hmi_image_offset_y)
         offset_xl = self.image_res[1] * (1.0 - self.hmi_crop_rate) * 0.5
-        self.crop_size = [
+        self.hmi_crop_size = [
             int(offset_yt),
             int(offset_yt + self.image_res[0] * self.hmi_crop_rate),
             int(offset_xl),
             int(offset_xl + self.image_res[1] * self.hmi_crop_rate)
             ]
-
+        self.windshield_crop_size = [
+            int(offset_yt),
+            int(offset_yt + self.image_res[0] * self.hmi_crop_rate),
+            int(offset_xl),
+            int(offset_xl + self.image_res[1] * self.hmi_crop_rate)
+            ]
         return video
 
 
-    def cropFrame(frame, crop_value, expand_rate):
+    def cropFrame(self, frame, crop_value, expand_rate):
         """
         crop_size:[xl, xr, yl, yr]
         """
@@ -64,7 +71,7 @@ class PIEVisualize():
         return cv2.resize(frame[crop_value[0]:crop_value[1], crop_value[2]:crop_value[3]], dsize=None, fx=expand_rate, fy=expand_rate)
 
 
-    def prepareIcon(filename):
+    def prepareIcon(self, filename):
         """
         file = filename
         icon_dict = {
@@ -104,7 +111,7 @@ class PIEVisualize():
     def touchCallback(self, event, x, y, flags, param):
         """if mouce clicked, check position and judge weather the position is on the rectange or not
         """
-        anchor = self.database.get("anchor")[self.frame_count]
+        anchor = self.database.get("anchor")[self.frame_count-self.database.get("start_frame")]
         touch_area = {
             "xtl" : anchor.get("xtl") - self.touch_area_rate * (anchor.get("xtl") - anchor.get("xbr")),
             "xbr" : anchor.get("xbr") + self.touch_area_rate * (anchor.get("xtl") - anchor.get("xbr")),
@@ -131,13 +138,13 @@ class PIEVisualize():
         """add information to the image
 
         """
-        anchor = self.calcAnchor(self.database.get("anchor")[frame_count])
+        anchor = self.calcAnchor(self.database.get("anchor")[frame_count-int(database.get("start_frame"))])
 
         # icon name
-        if obj_info.get('label') == 'traffic_light':
+        if database.get('label') == 'traffic_light':
             icon = self.icon_dict.get("tf_green") if self.is_checked else self.icon_dict.get("tf_red")
 
-        if obj_info.get('label') == 'pedestrian':
+        if database.get('label') == 'pedestrian':
             if self.is_checked:
                 icon = self.icon_dict.get("walker_cross")
             else:
@@ -155,10 +162,9 @@ class PIEVisualize():
             'ybr': int(anchor.get('ytl') - icon_offset_y),
             'xbr': int(anchor.get('xtl') + icon.get('roi')[1] - icon_offset_x)
             }
-
-        self.drawIcon(image, icon, icon_position, self.image_res)
-        image = cv2.rectangle(
-            image,
+        self.drawIcon(frame, icon, icon_position)
+        cv2.rectangle(
+            frame,
             (anchor.get('xtl'), anchor.get('ytl')),
             (anchor.get('xbr'), anchor.get('ybr')),
             (0, 255, 0) if self.is_checked else (0, 0, 255),
@@ -167,31 +173,30 @@ class PIEVisualize():
 
         # future trajectory
         arrow_color = 'green' if self.is_checked else 'red'
-        arrow_info = self.icon_dict.get(f"{obj_info.get('future_direction')}_{arrow_color}")
+        arrow_info = self.icon_dict.get(f"{database.get('future_direction')}_{arrow_color}")
         arrow_position = {
             'ytl': int(self.image_res[0] - 300),
             'xtl': int(self.image_res[1] / 2 - arrow_info.get('roi')[1]/2),
             'ybr': int(self.image_res[0] - 300 + arrow_info.get('roi')[0]),
             'xbr': int(self.image_res[1] / 2 + arrow_info.get('roi')[1]/2)
         }
-        self.drawIcon(image, arrow_info, arrow_position, self.image_res)
+        self.drawIcon(frame, arrow_info, arrow_position)
 
         ## show probability
         # cv2.putText(
         #     image,
-        #     '{:.01f}'.format(obj_info['prob']),
-        #     # '{:.01f}s'.format((obj_info['critical_point'] - obj_info['start_point'] - frame_count) / self.fps),
-        #     (self.current_obj_info['xtl'], self.current_obj_info['ytl'] + 50),
+        #     '{:.01f}'.format(database['prob']),
+        #     # '{:.01f}s'.format((database['critical_point'] - database['start_frame'] - frame_count) / self.fps),
+        #     (self.current_database['xtl'], self.current_database['ytl'] + 50),
         #     cv2.FONT_HERSHEY_SIMPLEX,
         #     1, color, 3, cv2.LINE_AA
         #     )
 
         # show progress
-        rate = (frame_count - database("start_point")) / (database.get("critical_point") - database.get("start_point"))
-        self.showProgress(image, icon_position, rate):
+        rate = (frame_count - database.get("start_frame")) / (database.get("critical_point") - database.get("start_frame"))
+        self.showProgress(frame, icon_position, rate)
 
-
-    def drawIcon(image, icon_info, position):
+    def drawIcon(self, image, icon_info, position):
         """draw icon to emphasize the target objects
         image : image
         position : PIE dataset info of the object in the frame
@@ -212,7 +217,7 @@ class PIEVisualize():
             print(f'failed to put icon: {e}')
 
 
-    def showProgress(image, base_position, rate):
+    def showProgress(self, image, base_position, rate):
         if rate <= 0.4:
             color = (0, 255, 0)
         elif 0.4 < rate <= 0.7:
@@ -223,16 +228,16 @@ class PIEVisualize():
         # straight probress bar
         cv2.line(
             image,
-            (icon_position.get('xtl'), icon_position.get('ybr') + 10),
-            (icon_position.get('xbr'), icon_position.get('ybr') + 10),
+            (base_position.get('xtl'), base_position.get('ybr') + 10),
+            (base_position.get('xbr'), base_position.get('ybr') + 10),
             (0, 0, 0),
             thickness=8,
             lineType=cv2.LINE_AA
             )
         cv2.line(
             image,
-            (icon_position.get('xtl'), icon_position.get('ybr') + 10),
-            (icon_position.get('xtl') + int((icon_position.get('xbr') - icon_position.get('xtl')) * (1 - lest_time)), icon_position.get('ybr') + 10),
+            (base_position.get('xtl'), base_position.get('ybr') + 10),
+            (base_position.get('xtl') + int((base_position.get('xbr') - base_position.get('xtl')) * (1 - rate)), base_position.get('ybr') + 10),
             color,
             thickness=8,
             lineType=cv2.LINE_AA
@@ -265,39 +270,39 @@ class PIEVisualize():
 
 
     def calcAnchor(self, anchor):
-        out_anchor = []
-        anchor = {
-            "xbr": int((float(anchor[0]) - self.hmi_crop_size[2]) * (1 / self.hmi_crop_rate)),
-            "xtl": int((float(anchor[1]) - self.hmi_crop_size[2]) * (1 / self.hmi_crop_rate)),
-            "ybr": int((float(anchor[2]) - self.hmi_crop_size[0]) * (1 / self.hmi_crop_rate)),
-            "ytl": int((float(anchor[3]) - self.hmi_crop_size[0]) * (1 / self.hmi_crop_rate)),
+        out_anchor = {
+            "xbr": int((float(anchor.get("xbr")) - self.hmi_crop_size[2]) * (1 / self.hmi_crop_rate)),
+            "xtl": int((float(anchor.get("xtl")) - self.hmi_crop_size[2]) * (1 / self.hmi_crop_rate)),
+            "ybr": int((float(anchor.get("ybr")) - self.hmi_crop_size[0]) * (1 / self.hmi_crop_rate)),
+            "ytl": int((float(anchor.get("ytl")) - self.hmi_crop_size[0]) * (1 / self.hmi_crop_rate)),
             }
         return out_anchor
 
 
-    def play(self, databse):
-        self.database = databse
+    def play(self, database):
+        self.database = database
         video = self.getVideo(database.get("video_file"))
-        video.set(cv2.CAP_PROP_POS_FRAMES, databse.get("start_point"))
-
+        video.set(cv2.CAP_PROP_POS_FRAMES, database.get("start_frame"))
         ret, frame = video.read()
-        self.frame_count = databse.get("start_point")
-        while ret and databse.get("crossing_point") > self.frame_count:
+        self.frame_count = database.get("start_frame")
+
+        print(self.frame_count, database.get("crossing_point"))
+        while ret and database.get("crossing_point") > self.frame_count:
             start = time.time()
 
             croped_frame = self.cropFrame(frame, self.hmi_crop_size, self.hmi_expand_rate)
             rendered_frame = self.renderInfo(croped_frame, self.database, self.frame_count) # add info to the frame
-            cv2.imshow("hmi", rendered_frame) # render
             cv2.moveWindow("hmi", 10, 0)
+            cv2.imshow("hmi", croped_frame) # render
 
-            croped_frame = self.cropFrame(frame, self.windshield_crop_size, self.windshield_expand_rate)
-            cv2.imshow("windshield", croped_frame) # render
-            cv2.moveWindow("windshield", 10, 0)
+            # croped_frame = self.cropFrame(frame, self.windshield_crop_size, self.windshield_expand_rate)
+            # cv2.imshow("windshield", croped_frame) # render
+            # cv2.moveWindow("windshield", 10, 0)
             #  calc sleep time to keep frame rate to be same with video rate
-            sleep_time = max(int((1000 / (self.modified_fps) - (time.time() - start))), 1)
+            sleep_time = max(int((1000 / (30) - (time.time() - start))), 1)
             # sleep and wait quit key
             key = cv2.waitKey(sleep_time) & 0xFF
-            if key is not 255 : print(key)
+            if key != 255 : print(key)
             if key == ord('q'):
                 exit(1)
             if key == 13 or key == ord('y') or key == ord('n'):

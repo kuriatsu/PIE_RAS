@@ -95,14 +95,14 @@ def getAnchor(track, start_frame, end_frame, crop_value, crop_rate):
                     # int((float(box.get('xtl')) - crop_value[2]) * (1 / crop_rate)),
                     # int((float(box.get('ybr')) - crop_value[0]) * (1 / crop_rate)),
                     # int((float(box.get('ytl')) - crop_value[0]) * (1 / crop_rate)),
-                    "xbr": int(box.get('xbr')),
-                    "xtl": int(box.get('xtl')),
-                    "ybr": int(box.get('ybr')),
-                    "ytl": int(box.get('ytl')),
+                    "xbr": int(float(box.get('xbr'))),
+                    "xtl": int(float(box.get('xtl'))),
+                    "ybr": int(float(box.get('ybr'))),
+                    "ytl": int(float(box.get('ytl'))),
                     }
+                anchor_list.append(anchor)
 
                 break
-        anchor_list.append(anchor)
     return anchor_list
 
 
@@ -151,146 +151,159 @@ video_list = [
 
 
 base_dir = "/run/media/kuriatsu/SamsungKURI/PIE_data"
-annt_attribute_root = getXmlRoot("{}/annotations_attributes/{}_attributes.xml".format(base_dir, video_list[0]))
-annt_root = getXmlRoot("{}/annotations/{}_annt.xml".format(base_dir, video_list[0]))
-ego_vehicle_root = getXmlRoot("{}/annotations_vehicle/{}_obd.xml".format(base_dir, video_list[0]))
-video_file = "{}/PIE_clips/{}.mp4".format(base_dir, video_list[0])
 image_offset_y = 0.2
 crop_rate =  0.6
-video, _, _, crop_value = getVideo(video_file, image_offset_y, crop_rate)
 expand_rate = 1.0 / crop_rate
-
-# {"name" :
-#     {
-#      "video_file" : str,
-#      "id" : str,
-#      "label" : str,
-#      "length" : float,
-#      "prob" : float,
-#      "results" : float,
-#      "anchor" : [{xbr:, xtl:, ybr:, ytl:},...],
-#      "future_direction" : str,
-#      "critical_point" : float,
-#      "crossing_point" : int,
-#      "start_point" : int,
-#     }
-# }
 database = {}
 int_length_list = [1.0, 3.0, 5.0, 7.0 ,9.0]
 
-for track in annt_root.iter("track"):
-    if track.get("label") == "pedestrian":
-        for box_attrib in track[0].iter("attribute"):
-            if box_attrib.get("name") == "id":
-                ped_id = box_attrib.text
-        ped_attrib = getAtrrib(annt_attribute_root, ped_id)
-        max_len = (int(ped_attrib.get("critical_point")) - int(track[0].get("frame")))/30
+for video in video_list:
+    annt_attribute_root = getXmlRoot("{}/annotations_attributes/{}_attributes.xml".format(base_dir, video))
+    annt_root = getXmlRoot("{}/annotations/{}_annt.xml".format(base_dir, video))
+    ego_vehicle_root = getXmlRoot("{}/annotations_vehicle/{}_obd.xml".format(base_dir, video))
+    video_file = "{}/PIE_clips/{}.mp4".format(base_dir, video)
+    video, _, _, crop_value = getVideo(video_file, image_offset_y, crop_rate)
 
-        # short video
-        if int_length_list[0] > max_len:
-            name = "{}_{}".format(ped_id, 0)
-            start_frame = int(track[0].get("frame"))
-            end_frame = int(track[-1].get("frame"))
-            # cutVideo(video, start_frame, end_frame, video_name, crop_value, expand_rate)
-            # print("short video : {} - {}s {}->{}".format(ped_id, max_len, start_frame, end_frame))
+    # {"name" :
+    #     {
+    #      "video_file" : str,
+    #      "id" : str,
+    #      "label" : str,
+    #      "length" : float,
+    #      "prob" : float,
+    #      "results" : float,
+    #      "anchor" : [{xbr:, xtl:, ybr:, ytl:},...],
+    #      "future_direction" : str,
+    #      "critical_point" : float,
+    #      "crossing_point" : int,
+    #      "start_point" : int,
+    #     }
+    # }
 
-            video_database = {
-                "video_file" : video_file,
-                "id" : ped_id,
-                "label" : "pedestrian",
-                "int_length" : 0,
-                "prob" : ped_attrib.get("intention_prob"),
-                "results" : result_dict.get(ped_id),
-                "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
-                "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
-                "critical_point" : float(ped_attrib.get("critical_point")),
-                "crossing_point" : int(ped_attrib.get("crossing_point")),
-                "start_frame" : int(track[0].get("frame"))
-            }
+    for track in annt_root.iter("track"):
+        if track.get("label") == "pedestrian":
+            for box_attrib in track[0].iter("attribute"):
+                if box_attrib.get("name") == "id":
+                    ped_id = box_attrib.text
+                    print(ped_id)
+            ped_attrib = getAtrrib(annt_attribute_root, ped_id)
+            max_len = (int(ped_attrib.get("critical_point")) - int(track[0].get("frame")))/30
 
-            database[name] = video_database
+            # short video
+            if int_length_list[0] > max_len:
+                name = "{}_{}".format(ped_id, 0.0)
+                start_frame = int(track[0].get("frame"))
+                end_frame = int(track[-1].get("frame"))
+                print("short", name, start_frame, int(ped_attrib.get("crossing_point")))
+                # cutVideo(video, start_frame, end_frame, video_name, crop_value, expand_rate)
+                # print("short video : {} - {}s {}->{}".format(ped_id, max_len, start_frame, end_frame))
 
-        # cut video each size
-        for int_length in int_length_list:
-            if int_length > max_len:
-                break
-            name = "{}_{}".format(ped_id, int_length)
-            # video_name = "{}/extracted_data/{}_ped_{}_{}.mp4".format(base_dir, video_list[0], ped_id, int_length)
-            start_frame = int(int(ped_attrib.get("critical_point")) - int_length * 30)
-            end_frame = int(track[-1].get("frame"))
-            # cutVideo(video, start_frame, end_frame, video_name, crop_value, expand_rate)
-            # print("start cut :{}- {}s {}->{}".format(ped_id, int_length, start_frame, end_frame))
+                video_database = {
+                    "video_file" : video_file,
+                    "id" : ped_id,
+                    "label" : "pedestrian",
+                    "int_length" : 0,
+                    "prob" : ped_attrib.get("intention_prob"),
+                    "results" : result_dict.get(ped_id),
+                    "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
+                    "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
+                    "critical_point" : float(ped_attrib.get("critical_point")),
+                    "crossing_point" : int(ped_attrib.get("crossing_point")),
+                    "start_frame" : int(track[0].get("frame"))
+                }
 
-            video_database = {
-                "video_file" : video_file,
-                "id" : ped_id,
-                "int_length" : int_length,
-                "prob" : ped_attrib.get("intention_prob"),
-                "results" : result_dict.get(ped_id),
-                "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
-                "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
-                "critical_point" : float(ped_attrib.get("critical_point")) - start_frame,
-                "crossing_point" : int(ped_attrib.get("crossing_point")) - start_frame,
-            }
+                database[name] = video_database
 
-            database[name] = video_database
+            # cut video each size
+            for int_length in int_length_list:
+                if int_length > max_len:
+                    break
+                name = "{}_{}".format(ped_id, int_length)
+                # video_name = "{}/extracted_data/{}_ped_{}_{}.mp4".format(base_dir, video_list[0], ped_id, int_length)
+                start_frame = int(int(ped_attrib.get("critical_point")) - int_length * 30)
+                end_frame = int(track[-1].get("frame"))
+                print("long", name, start_frame, int(ped_attrib.get("crossing_point")))
+                # cutVideo(video, start_frame, end_frame, video_name, crop_value, expand_rate)
+                # print("start cut :{}- {}s {}->{}".format(ped_id, int_length, start_frame, end_frame))
+
+                video_database = {
+                    "video_file" : video_file,
+                    "id" : ped_id,
+                    "label" : "pedestrian",
+                    "int_length" : int_length,
+                    "prob" : ped_attrib.get("intention_prob"),
+                    "results" : result_dict.get(ped_id),
+                    "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
+                    "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
+                    "critical_point" : float(ped_attrib.get("critical_point")),
+                    "crossing_point" : int(ped_attrib.get("crossing_point")),
+                    "start_frame" : start_frame
+                }
+
+                database[name] = video_database
 
 
-    if track.get("label") == "traffic_light":
-        for box_attrib in track[0].iter("attribute"):
-            if box_attrib.get("name") == "id":
-                tl_id = box_attrib.text
-        max_len = (int(track[-1].get("frame")) - int(track[0].get("frame")))/30
+        elif track.get("label") == "traffic_light":
+            for box_attrib in track[0].iter("attribute"):
+                if box_attrib.get("name") == "id":
+                    tl_id = box_attrib.text
+                    print(tl_id)
+            max_len = (int(track[-1].get("frame")) - int(track[0].get("frame")))/30
 
-        # short video
-        if int_length_list[0] > max_len:
-            name = "{}_{}".format(ped_id, 0)
-            # video_name = "{}/extracted_data/{}_tl_{}_0.mp4".format(base_dir, video_list[0], tl_id)
-            start_frame = int(track[0].get("frame"))
-            end_frame = int(track[-1].get("frame"))
-            # cutVideo(video, start_frame, end_frame, video_name, crop_value, expand_rate)
-            # print("short video : {} - {}s {}->{}".format(tl_id, max_len, start_frame, end_frame))
+            # short video
+            if int_length_list[0] > max_len:
+                name = "{}_{}".format(tl_id, 0.0)
+                # video_name = "{}/extracted_data/{}_tl_{}_0.mp4".format(base_dir, video_list[0], tl_id)
+                start_frame = int(track[0].get("frame"))
+                end_frame = int(track[-1].get("frame"))
+                print(name, start_frame, end_frame)
+                # cutVideo(video, start_frame, end_frame, video_name, crop_value, expand_rate)
+                # print("short video : {} - {}s {}->{}".format(tl_id, max_len, start_frame, end_frame))
 
-            video_database = {
-                "video_file" : video_file,
-                "id" : tl_id,
-                "label" : "traffic_light",
-                "int_length" : 0,
-                "prob" : random.random(),
-                "results" : random.random(),
-                "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
-                "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
-                "critical_point" : float(track[-1].get('frame')) - start_frame,
-                "crossing_point" : int(track[-1].get('frame')) - start_frame,
-            }
+                video_database = {
+                    "video_file" : video_file,
+                    "id" : tl_id,
+                    "label" : "traffic_light",
+                    "int_length" : 0,
+                    "prob" : random.random(),
+                    "results" : random.random(),
+                    "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
+                    "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
+                    "critical_point" : float(track[-1].get('frame')),
+                    "crossing_point" : int(track[-1].get('frame')),
+                    "start_frame" : int(track[0].get("frame"))
+                }
 
-            database[name] = video_database
+                database[name] = video_database
 
-        # cut video each size
-        for int_length in int_length_list:
-            if int_length > max_len:
-                break
+            # cut video each size
+            for int_length in int_length_list:
+                if int_length > max_len:
+                    break
 
-            name = "{}_{}".format(ped_id, int_length)
-            # video_name = "{}/extracted_data/{}_tl_{}_{}.mp4".format(base_dir, video_list[0], tl_id, int_length)
-            start_frame = int(int(track[-1].get("frame")) - int_length * 30)
-            end_frame = int(track[-1].get("frame"))
-            # cutVideo(video, start_frame, end_frame, video_name, crop_value, expand_rate)
-            # print("start cut :{}- {}s {}->{}".format(tl_id, int_length, start_frame, end_frame))
+                name = "{}_{}".format(tl_id, int_length)
+                # video_name = "{}/extracted_data/{}_tl_{}_{}.mp4".format(base_dir, video_list[0], tl_id, int_length)
+                start_frame = int(int(track[-1].get("frame")) - int_length * 30)
+                end_frame = int(track[-1].get("frame"))
+                print(name, start_frame, end_frame)
+                # cutVideo(video, start_frame, end_frame, video_name, crop_value, expand_rate)
+                # print("start cut :{}- {}s {}->{}".format(tl_id, int_length, start_frame, end_frame))
 
-            video_database = {
-                "video_file" : video_file,
-                "id" : tl_id,
-                "int_length" : int_length,
-                "prob" : random.random(),
-                "results" : random.random(),
-                "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
-                "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
-                "critical_point" : float(track[-1].get('frame')) - start_frame,
-                "crossing_point" : int(track[-1].get('frame')) - start_frame,
-            }
+                video_database = {
+                    "video_file" : video_file,
+                    "id" : tl_id,
+                    "label" : "traffic_light",
+                    "int_length" : int_length,
+                    "prob" : random.random(),
+                    "results" : random.random(),
+                    "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
+                    "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
+                    "critical_point" : int(track[-1].get('frame')),
+                    "crossing_point" : int(track[-1].get('frame')),
+                    "start_frame" : start_frame
+                }
 
-            database[name] = video_database
+                database[name] = video_database
 
 with open("{}/extracted_data/database.pkl".format(base_dir), "wb") as f:
     pickle.dump(database, f)
