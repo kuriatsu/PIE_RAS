@@ -12,11 +12,11 @@ class PIEVisualize():
 
         self.hmi_image_offset_y = 0.2
         self.hmi_crop_rate = 0.6
-        self.hmi_expand_rate = 1.0 / self.hmi_crop_rate
-        self.hmi_crop_size = None
+        # self.hmi_expand_rate = 1.0 / self.hmi_crop_rate
+        self.hmi_res = None
         self.touch_area_rate = 2.0
 
-        self.windshield_crop_size = None
+        self.windshield_res = None
         self.windshield_expand_rate = None
 
         self.image_res = None
@@ -24,6 +24,7 @@ class PIEVisualize():
 
         self.icon_dict = {}
         self.is_checked = False
+        self.frame_count = None
 
         self.prepareEventHandler()
         self.prepareIcon("/run/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons")
@@ -48,27 +49,48 @@ class PIEVisualize():
         # calc image-crop-region crop -> expaned to original frame geometry
         offset_yt = self.image_res[0] * ((1.0 - self.hmi_crop_rate) * 0.5 + self.hmi_image_offset_y)
         offset_xl = self.image_res[1] * (1.0 - self.hmi_crop_rate) * 0.5
-        self.hmi_crop_size = [
-            int(offset_yt),
-            int(offset_yt + self.image_res[0] * self.hmi_crop_rate),
-            int(offset_xl),
-            int(offset_xl + self.image_res[1] * self.hmi_crop_rate)
-            ]
-        self.windshield_crop_size = [
-            int(offset_yt),
-            int(offset_yt + self.image_res[0] * self.hmi_crop_rate),
-            int(offset_xl),
-            int(offset_xl + self.image_res[1] * self.hmi_crop_rate)
-            ]
+        self.hmi_res = {
+            "yt" : int(offset_yt),
+            # "yb" : int(offset_yt + self.image_res[0] * self.hmi_crop_rate),
+            "yb" : int(offset_yt + self.image_res[0]),
+            "xl" : int(offset_xl),
+            "xr" : int(offset_xl + self.image_res[1])
+            # "xr" : int(offset_xl + self.image_res[1] * self.hmi_crop_rate)
+        }
+        self.windshield_res = {
+            "yt" : int(offset_yt),
+            "yb" : int(offset_yt + self.image_res[0] * self.hmi_crop_rate),
+            "xl" : int(offset_xl),
+            "xr" : int(offset_xl + self.image_res[1] * self.hmi_crop_rate)
+        }
         return video
 
 
-    def cropFrame(self, frame, crop_value, expand_rate):
+    def cropFrame(self, frame, res, expand_rate, fix=True):
         """
         crop_size:[xl, xr, yl, yr]
         """
-        # frame_list = []
-        return cv2.resize(frame[crop_value[0]:crop_value[1], crop_value[2]:crop_value[3]], dsize=None, fx=expand_rate, fy=expand_rate)
+        if not fix:
+            anchor = self.calcAnchor(self.database.get("anchor")[self.frame_count-int(self.database.get("start_frame"))])
+            x_offset = 0
+            y_offset = 0
+            if anchor.get("xtl") <= 0:
+                x_offset = int(max(anchor.get("xtl"), 0))
+            elif anchor.get("xbr") >= res.get("xr"):
+                x_offset = int(min(anchor.get("xbr"), self.image_res[1]) - res.get("xr"))
+
+            if anchor.get("ytl") <= 0:
+                y_offset = int(max(anchor.get("ytl"), 0))
+            elif anchor.get("ybr") >= res.get("yb"):
+                y_offset = int(min(anchor.get("ybr"), self.image_res[0]) - res.get("yb"))
+
+            print(x_offset, y_offset)
+            # frame_list = []
+            return frame[res["yt"]+y_offset:res["yb"]+y_offset, res["xl"]+x_offset:res["xr"]+x_offset]
+            # return cv2.resize(frame[res["yt"]+y_offset:res["yb"]+y_offset, res["xl"]+x_offset:res["xr"]+x_offset], dsize=None, fx=expand_rate, fy=expand_rate)
+        else:
+            # return cv2.resize(frame[res["yt"]:res["yb"], res["xl"]:res["xr"]], dsize=None)
+            return cv2.resize(frame[res["yt"]:res["yb"], res["xl"]:res["xr"]], dsize=None, fx=expand_rate, fy=expand_rate)
 
 
     def prepareIcon(self, filename):
@@ -134,17 +156,17 @@ class PIEVisualize():
         self.is_checked = not self.is_checked
 
 
-    def renderInfo(self, frame, database, frame_count):
+    def renderInfo(self, frame):
         """add information to the image
 
         """
-        anchor = self.calcAnchor(self.database.get("anchor")[frame_count-int(database.get("start_frame"))])
+        anchor = self.calcAnchor(self.database.get("anchor")[self.frame_count-int(self.database.get("start_frame"))])
 
         # icon name
-        if database.get('label') == 'traffic_light':
+        if self.database.get('label') == 'traffic_light':
             icon = self.icon_dict.get("tf_green") if self.is_checked else self.icon_dict.get("tf_red")
 
-        if database.get('label') == 'pedestrian':
+        if self.database.get('label') == 'pedestrian':
             if self.is_checked:
                 icon = self.icon_dict.get("walker_cross")
             else:
@@ -173,7 +195,7 @@ class PIEVisualize():
 
         # future trajectory
         arrow_color = 'green' if self.is_checked else 'red'
-        arrow_info = self.icon_dict.get(f"{database.get('future_direction')}_{arrow_color}")
+        arrow_info = self.icon_dict.get(f"{self.database.get('future_direction')}_{arrow_color}")
         arrow_position = {
             'ytl': int(self.image_res[0] - 300),
             'xtl': int(self.image_res[1] / 2 - arrow_info.get('roi')[1]/2),
@@ -185,16 +207,31 @@ class PIEVisualize():
         ## show probability
         # cv2.putText(
         #     image,
-        #     '{:.01f}'.format(database['prob']),
-        #     # '{:.01f}s'.format((database['critical_point'] - database['start_frame'] - frame_count) / self.fps),
+        #     '{:.01f}'.format(self.database['prob']),
+        #     # '{:.01f}s'.format((self.database['critical_point'] - self.database['start_frame'] - self.frame_count) / self.fps),
         #     (self.current_database['xtl'], self.current_database['ytl'] + 50),
         #     cv2.FONT_HERSHEY_SIMPLEX,
         #     1, color, 3, cv2.LINE_AA
         #     )
 
         # show progress
-        rate = (frame_count - database.get("start_frame")) / (database.get("critical_point") - database.get("start_frame"))
+        rate = (self.frame_count - self.database.get("start_frame")) / (self.database.get("critical_point") - self.database.get("start_frame"))
         self.showProgress(frame, icon_position, rate)
+
+        x_offset = 0
+        y_offset = 0
+        if anchor.get("xtl") <= 0:
+            x_offset = int(max(anchor.get("xtl"), 0))
+        elif anchor.get("xbr") >= self.hmi_res.get("xr"):
+            x_offset = int(min(anchor.get("xbr"), self.image_res[1]) - self.hmi_res.get("xr"))
+
+        if anchor.get("ytl") <= 0:
+            y_offset = int(max(anchor.get("ytl"), 0))
+        elif anchor.get("ybr") >= self.hmi_res.get("yb"):
+            y_offset = int(min(anchor.get("ybr"), self.image_res[0]) - self.hmi_res.get("yb"))
+
+        return frame[self.hmi_res["yt"]+y_offset:self.hmi_res["yb"]+y_offset, self.hmi_res["xl"]+x_offset:self.hmi_res["xr"]+x_offset]
+
 
     def drawIcon(self, image, icon_info, position):
         """draw icon to emphasize the target objects
@@ -270,11 +307,17 @@ class PIEVisualize():
 
 
     def calcAnchor(self, anchor):
+        # out_anchor = {
+        #     "xbr": int((float(anchor.get("xbr")) - self.hmi_res["xl"]) * (1 / self.hmi_crop_rate)),
+        #     "xtl": int((float(anchor.get("xtl")) - self.hmi_res["xl"]) * (1 / self.hmi_crop_rate)),
+        #     "ybr": int((float(anchor.get("ybr")) - self.hmi_res["yt"]) * (1 / self.hmi_crop_rate)),
+        #     "ytl": int((float(anchor.get("ytl")) - self.hmi_res["yt"]) * (1 / self.hmi_crop_rate)),
+        #     }
         out_anchor = {
-            "xbr": int((float(anchor.get("xbr")) - self.hmi_crop_size[2]) * (1 / self.hmi_crop_rate)),
-            "xtl": int((float(anchor.get("xtl")) - self.hmi_crop_size[2]) * (1 / self.hmi_crop_rate)),
-            "ybr": int((float(anchor.get("ybr")) - self.hmi_crop_size[0]) * (1 / self.hmi_crop_rate)),
-            "ytl": int((float(anchor.get("ytl")) - self.hmi_crop_size[0]) * (1 / self.hmi_crop_rate)),
+            "xbr": int((float(anchor.get("xbr"))) * (1 / self.hmi_crop_rate)),
+            "xtl": int((float(anchor.get("xtl"))) * (1 / self.hmi_crop_rate)),
+            "ybr": int((float(anchor.get("ybr"))) * (1 / self.hmi_crop_rate)),
+            "ytl": int((float(anchor.get("ytl"))) * (1 / self.hmi_crop_rate)),
             }
         return out_anchor
 
@@ -290,12 +333,13 @@ class PIEVisualize():
         while ret and database.get("crossing_point") > self.frame_count:
             start = time.time()
 
-            croped_frame = self.cropFrame(frame, self.hmi_crop_size, self.hmi_expand_rate)
-            rendered_frame = self.renderInfo(croped_frame, self.database, self.frame_count) # add info to the frame
+            # croped_frame = self.cropFrame(frame, self.hmi_res, self.hmi_expand_rate, fix=False)
+            resized_frame = cv2.resize(frame, dsize=None, fx=(1 / self.hmi_crop_rate), fy=(1 / self.hmi_crop_rate))
+            rendered_frame = self.renderInfo(resized_frame) # add info to the frame
             cv2.moveWindow("hmi", 10, 0)
-            cv2.imshow("hmi", croped_frame) # render
+            cv2.imshow("hmi", rendered_frame) # render
 
-            # croped_frame = self.cropFrame(frame, self.windshield_crop_size, self.windshield_expand_rate)
+            # croped_frame = self.cropFrame(frame, self.windshield_res, self.windshield_expand_rate)
             # cv2.imshow("windshield", croped_frame) # render
             # cv2.moveWindow("windshield", 10, 0)
             #  calc sleep time to keep frame rate to be same with video rate
