@@ -106,12 +106,14 @@ def getAnchor(track, start_frame, end_frame, crop_value, crop_rate):
     return anchor_list
 
 
+base_dir = "/media/kuriatsu/SamsungKURI/PIE_data"
+
 result_file_list = [
-    "/run/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/predict/test/result_0-150.pkl",
-    "/run/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/predict/test/result_151-300.pkl",
-    "/run/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/predict/test/result_301-450.pkl",
-    "/run/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/predict/test/result_451-600.pkl",
-    "/run/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/predict/test/result_601-719.pkl",
+    base_dir + "/extracted_data/predict/test/result_0-150.pkl",
+    base_dir + "/extracted_data/predict/test/result_151-300.pkl",
+    base_dir + "/extracted_data/predict/test/result_301-450.pkl",
+    base_dir + "/extracted_data/predict/test/result_451-600.pkl",
+    base_dir + "/extracted_data/predict/test/result_601-719.pkl",
     ]
 
 # load prediction result
@@ -150,7 +152,6 @@ video_list = [
 ]
 
 
-base_dir = "/run/media/kuriatsu/SamsungKURI/PIE_data"
 image_offset_y = 0.2
 crop_rate =  0.6
 expand_rate = 1.0 / crop_rate
