@@ -6,27 +6,40 @@ import glob
 import numpy as np
 import time
 import random
+import csv
 
 class PIEVisualize():
     def __init__(self):
-        self.database = None
+        self.is_conservative = True
+        self.is_checked_thres = 0.5
 
+        self.log_file = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log_data.csv"
         self.hmi_image_offset_rate_y = 0.1 # rate
-        self.hmi_crop_margin = 50 # px
+        self.hmi_crop_margin = 20 # px
         self.hmi_crop_rate_max = 0.6
         self.hmi_crop_rate = 0.6
-        self.hmi_res = [1920, 1080]
-        self.hmi_anchor = None
+        self.hmi_res = {"x": 1920, "y": 1080}
         self.touch_area_rate = 2.0
+        self.frame_count = 0
 
-        self.windshield_anchor = None
-        self.windshield_res = [3840, 1080]
+        self.hmi_anchor = None
+        self.target_anchor = None
+
+        self.windshield_anchor = {
+            "xtl": 0,
+            "xbr": 1920,
+            "ytl": int((1-1920/3840)*0.5*1920-20),
+            "ybr": int((0.5+1920/3840*0.5)*1920-20),
+            }
+        self.windshield_res = {"x": 3840, "y": 1080}
 
         self.video_res = None
         self.video_fps = None
 
         self.icon_dict = {}
         self.is_checked = False
+
+        self.log = []
 
         self.prepareEventHandler()
         self.prepareIcon("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons")
@@ -35,29 +48,42 @@ class PIEVisualize():
         # cv2.namedWindow("windshield", cv2.WND_PROP_FULLSCREEN)
         # cv2.setWindowProperty("windshield", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-    # def __enter__(self):
-    #     self.database = None
-    #
-    #     self.hmi_image_offset_rate_y = 0.1
-    #     self.hmi_crop_rate_max = 0.6
-    #     self.hmi_crop_rate = 0.6
-    #     self.hmi_res = [1920, 1080]
-    #     self.hmi_anchor = None
-    #     self.touch_area_rate = 2.0
-    #
-    #     self.windshield_anchor = None
-    #     self.windshield_res = [3840, 1080]
-    #
-    #     self.video_res = None
-    #     self.video_fps = None
-    #
-    #     self.icon_dict = {}
-    #     self.is_checked = False
-    #
-    #     self.prepareEventHandler()
-    #     self.prepareIcon("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons")
-    #     cv2.namedWindow("hmi", cv2.WND_PROP_FULLSCREEN)
+    def __enter__(self):
+        self.is_conservative = False
+        self.is_checked_thres = 0.5
 
+        self.log_file = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log_data.csv"
+        self.hmi_image_offset_rate_y = 0.1 # rate
+        self.hmi_crop_margin = 40 # px
+        self.hmi_crop_rate_max = 0.4
+        self.hmi_crop_rate = 0.6
+        self.hmi_res = {"x": 1920, "y": 1080}
+        self.touch_area_rate = 2.0
+        self.frame_count = 0
+
+        self.hmi_anchor = None
+        self.target_anchor = None
+
+        self.windshield_anchor = {
+            "xtl": 0,
+            "xbr": 1920,
+            "ytl": int((1-1920/3840)*0.5*1920),
+            "ybr": int((0.5+1920/3840*0.5)*1920),
+            }
+        self.windshield_res = {"x": 3840, "y": 1080}
+
+        self.video_res = None
+        self.video_fps = None
+
+        self.icon_dict = {}
+        self.is_checked = False
+
+        self.log = []
+
+        self.prepareEventHandler()
+        self.prepareIcon("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons")
+        cv2.namedWindow("hmi", cv2.WND_PROP_FULLSCREEN)
+        return self
 
     def getVideo(self, filename):
         try:
@@ -79,11 +105,12 @@ class PIEVisualize():
         return video
 
 
-    def cropResizeFrame(self, frame, anchor, expand_rate):
+    def cropResizeFrame(self, frame, hmi_anchor, video_res):
         """
         crop_size:[xl, xr, yl, yr]
         """
-        return cv2.resize(frame[anchor.get("ytl"):anchor.get("ybr"), anchor.get("xtl"):anchor.get("xbr")], dsize=None, fx=expand_rate, fy=expand_rate)
+        expand_rate = video_res.get("x")/(hmi_anchor.get("xbr")-hmi_anchor.get("xtl"))
+        return cv2.resize(frame[hmi_anchor.get("ytl"):hmi_anchor.get("ybr"), hmi_anchor.get("xtl"):hmi_anchor.get("xbr")], dsize=None, fx=expand_rate, fy=expand_rate)
 
         # frame_list = []
 
@@ -127,28 +154,46 @@ class PIEVisualize():
     def touchCallback(self, event, x, y, flags, param):
         """if mouce clicked, check position and judge weather the position is on the rectange or not
         """
-        anchor = self.database.get("anchor")[self.frame_count-self.database.get("start_frame")]
+        if self.target_anchor is None:
+            return
+
         touch_area = {
-            "xtl" : anchor.get("xtl") - self.touch_area_rate * (anchor.get("xtl") - anchor.get("xbr")),
-            "xbr" : anchor.get("xbr") + self.touch_area_rate * (anchor.get("xtl") - anchor.get("xbr")),
-            "ytl" : anchor.get("ytl") - self.touch_area_rate * (anchor.get("ytl") - anchor.get("ybr")),
-            "ybr" : anchor.get("ybr") + self.touch_area_rate * (anchor.get("ytl") - anchor.get("ybr")),
+            "xtl" : self.target_anchor.get("xtl") - self.touch_area_rate * (self.target_anchor.get("xbr") - self.target_anchor.get("xtl")),
+            "xbr" : self.target_anchor.get("xbr") + self.touch_area_rate * (self.target_anchor.get("xbr") - self.target_anchor.get("xtl")),
+            "ytl" : self.target_anchor.get("ytl") - self.touch_area_rate * (self.target_anchor.get("ybr") - self.target_anchor.get("ytl")),
+            "ybr" : self.target_anchor.get("ybr") + self.touch_area_rate * (self.target_anchor.get("ybr") - self.target_anchor.get("ytl")),
         }
         # if the event handler is leftButtonDown
         if event == cv2.EVENT_LBUTTONDOWN and \
            touch_area.get('xtl') < x < touch_area.get('xbr') and \
            touch_area.get('ytl') < y < touch_area.get('ybr'):
 
-            # self.log[-1] += [time.time(), 'touched', None]
-            self.is_checked = not self.is_checked
-
+           self.saveLog("touch")
+           self.is_checked = not self.is_checked
 
     def buttonCallback(self, key):
         """callback of enter key push, target is focused object
         """
-        # self.log[-1] += [time.time(), 'pushed', key]
+        if self.target_anchor is None:
+            return
+
+        self.saveLog("button")
         self.is_checked = not self.is_checked
 
+    def saveLog(self, int_method):
+        if self.log[-1][4] is None:
+            self.log[-1][2] = int_method
+            self.log[-1][3] += 1
+            self.log[-1][4] = self.frame_count
+            self.log[-1][5] = time.time()
+            self.log[-1][6] = self.frame_count
+            self.log[-1][7] = time.time()
+            self.log[-1][8] = self.is_checked
+        else:
+            self.log[-1][3] += 1
+            self.log[-1][6] = self.frame_count
+            self.log[-1][7] = time.time()
+            self.log[-1][8] = self.is_checked
 
     def renderInfo(self, frame, database, obj_anchor, frame_count):
         """add information to the image
@@ -189,9 +234,9 @@ class PIEVisualize():
         arrow_color = 'green' if self.is_checked else 'red'
         arrow_info = self.icon_dict.get(f"{database.get('future_direction')}_{arrow_color}")
         arrow_position = {
-            'ytl': int(len(frame[0]) - 300),
+            'ytl': int(len(frame[0]) - 50),
             'xtl': int(len(frame[1]) / 2 - arrow_info.get('roi')[1]/2),
-            'ybr': int(len(frame[0]) - 300 + arrow_info.get('roi')[0]),
+            'ybr': int(len(frame[0]) - 50 + arrow_info.get('roi')[0]),
             'xbr': int(len(frame[1]) / 2 + arrow_info.get('roi')[1]/2)
         }
         self.drawIcon(frame, arrow_info, arrow_position)
@@ -210,12 +255,13 @@ class PIEVisualize():
         rate = frame_count / (database.get("critical_point") - database.get("start_frame"))
         self.showProgress(frame, icon_position, rate)
 
-    def calcAnchor(self, obj_anchor, frame_crop_anchor, expand_rate):
+    def calcAnchor(self, obj_anchor, hmi_anchor, video_res):
+        expand_rate = video_res.get("x")/(hmi_anchor.get("xbr")-hmi_anchor.get("xtl"))
         out_anchor = {
-            "xbr": int( (float(obj_anchor.get("xbr")) - frame_crop_anchor.get("xtl") ) * expand_rate),
-            "xtl": int( (float(obj_anchor.get("xtl")) - frame_crop_anchor.get("xtl") ) * expand_rate),
-            "ybr": int( (float(obj_anchor.get("ybr")) - frame_crop_anchor.get("ytl") ) * expand_rate),
-            "ytl": int( (float(obj_anchor.get("ytl")) - frame_crop_anchor.get("ytl") ) * expand_rate),
+            "xbr": int( (float(obj_anchor.get("xbr")) - hmi_anchor.get("xtl") ) * expand_rate),
+            "xtl": int( (float(obj_anchor.get("xtl")) - hmi_anchor.get("xtl") ) * expand_rate),
+            "ybr": int( (float(obj_anchor.get("ybr")) - hmi_anchor.get("ytl") ) * expand_rate),
+            "ytl": int( (float(obj_anchor.get("ytl")) - hmi_anchor.get("ytl") ) * expand_rate),
             }
         return out_anchor
 
@@ -226,7 +272,7 @@ class PIEVisualize():
         """
 
         if position.get('ytl') < 0 or position.get('ybr') > self.video_res.get("y") or position.get('xtl') < 0 or position.get('xbr') > self.video_res.get("x"):
-            print(f"icon is out of range y:{position.get('ytl')}-{position.get('ybr')}, x:{position.get('xtl')}-{position.get('xbr')}")
+            # print(f"icon is out of range y:{position.get('ytl')}-{position.get('ybr')}, x:{position.get('xtl')}-{position.get('xbr')}")
             return
 
         # put icon on frame
@@ -281,54 +327,105 @@ class PIEVisualize():
         # )
 
 
-    def getHMICropAnchor(self, video_res, obj_anchor):
+    def getHMICropAnchor(self, obj_anchor, video_res):
         # obj_anchor = self.database.get("anchor")[frame_count-int(database.get("start_frame"))]
         # calc image-crop-region crop -> expaned to original frame geometry
         max_ytl = video_res.get("y") * ( (1.0 - self.hmi_crop_rate_max) * 0.5 + self.hmi_image_offset_rate_y )
         min_ybr = video_res.get("y") * (0.5 + self.hmi_crop_rate_max*0.5 + self.hmi_image_offset_rate_y)
         max_xtl = video_res.get("x") * ( (1.0 - self.hmi_crop_rate_max)*0.5 )
         min_xbr = video_res.get("x") * (0.5 + self.hmi_crop_rate_max*0.5)
+        # print("ytl:{}, ybr:{}, xtl:{}, xbr:{}".format(max_ytl, m+ video_res.get("y") * self.hmi_image_offset_rate_yin_ybr, max_xtl, min_xbr))
+        extend_size_x = max(max_xtl - obj_anchor.get("xtl") + self.hmi_crop_margin,  obj_anchor.get("xbr") + self.hmi_crop_margin - min_xbr, 0)
+        extend_size_y = max(max_ytl - obj_anchor.get("ytl") + self.hmi_crop_margin,  obj_anchor.get("ybr") + self.hmi_crop_margin - min_ybr, 0)
+        # print(extend_size, video_res.get("y") - min_ybr, max_ytl)
+        # if extend_size < min(video_res.get("y") - min_ybr, max_ytl):
+        if extend_size_x == 0 and extend_size_y == 0:
+            out_anchor = {
+                "xbr": int(min_xbr),
+                "xtl": int(max_xtl),
+                "ybr": int(min_ybr),
+                "ytl": int(max_ytl),
+            }
+        elif extend_size_x > extend_size_y:
+            out_anchor = {
+                "xbr": int(min_xbr + extend_size_x),
+                "xtl": int(max_xtl - extend_size_x),
+                "ybr": int(min_ybr + video_res.get("y") * extend_size_x / video_res.get("x")),
+                "ytl": int(max_ytl - video_res.get("y") * extend_size_x / video_res.get("x")),
+            }
+        else:
+            out_anchor = {
+                "xbr": int(min_xbr + video_res.get("x") * extend_size_y / video_res.get("y")),
+                "xtl": int(max_xtl - video_res.get("x") * extend_size_y / video_res.get("y")),
+                "ybr": int(min_ybr + extend_size_y),
+                "ytl": int(max_ytl - extend_size_y),
+            }
 
-        extend_size = max(max_xtl - obj_anchor.get("xtl"),  obj_anchor.get("xbr") - min_xbr,  max_ytl - obj_anchor.get("ytl"),  obj_anchor.get("ybr") - min_ybr,  0)
-        extend_size = min(max_ytl,  self.video_res.get("y") - min_ybr,  extend_size)
-        extend_size += self.hmi_crop_margin
-        out_anchor = {
-            "xbr": int(min_xbr + extend_size),
-            "xtl": int(max_xtl - extend_size),
-            "ybr": int(min_ybr + extend_size),
-            "ytl": int(max_ytl - extend_size),
-        }
+
+        if self.hmi_image_offset_rate_y > 0.0 and out_anchor.get("ybr") > video_res.get("y"):
+            out_anchor["ytl"] -= int(out_anchor.get("ybr") - video_res.get("y"))
+            out_anchor["ybr"] = int(video_res.get("y"))
+
+        elif self.hmi_image_offset_rate_y < 0.0 and out_anchor.get("ytl") < 0:
+            out_anchor["ybr"] -= int(out_anchor.get("ytl"))
+            out_anchor["ytl"] = 0
+
+        if out_anchor.get("xtl") < 0 or out_anchor.get("ytl") < 0 or out_anchor.get("xbr") > video_res.get("x") or out_anchor.get("ybr") > video_res.get("y"):
+            out_anchor = {
+                "xbr": int(video_res.get("x")),
+                "xtl": 0,
+                "ybr": int(video_res.get("y")),
+                "ytl": 0,
+            }
+            print("out of crop size")
+            # print(out_anchor.get("xbr") - out_anchor.get("xtl"), out_anchor.get("ybr") - out_anchor.get("ytl"))
 
         return out_anchor
 
 
     def play(self, database):
-        self.database = database
         video = self.getVideo(database.get("video_file"))
         video.set(cv2.CAP_PROP_POS_FRAMES, database.get("start_frame"))
         ret, frame = video.read()
         self.frame_count = 0
 
-        print(self.frame_count, database.get("crossing_point"), ret)
+        if not self.is_conservative and database.get("results") < self.is_checked_thres:
+            self.is_checked = True
+        else:
+            self.is_checked = False
+        self.log.append([
+            database.get("id"), # id
+            self.is_conservative, # is_conservative
+            None, # int_method
+            0, # int_count
+            None, # first_int_frame
+            None, # first_int_time
+            None, # last_int_frame
+            None, # last_int_time
+            self.is_checked, # last_state
+            ])
+
+        print(database.get("id"), database.get("results"), database.get("prob"))
         while ret and database.get("crossing_point") - database.get("start_frame") > self.frame_count:
             start = time.time()
-            crop_anchor = self.getHMICropAnchor(self.video_res, self.database.get("anchor")[self.frame_count])
-            # crop_anchor = self.getHMICropAnchor(self.video_res, self.database.get("anchor")[self.frame_count-int(self.database.get("start_frame"))])
-            print(crop_anchor)
+            if any(database.get("anchor")[self.frame_count]):
+                hmi_crop_anchor = self.getHMICropAnchor(database.get("anchor")[self.frame_count], self.video_res)
+                target_anchor = self.calcAnchor(database.get("anchor")[self.frame_count], hmi_crop_anchor, self.video_res)
+                croped_frame = self.cropResizeFrame(frame, hmi_crop_anchor, self.video_res)
+                if self.frame_count < (database.get("critical_point") - database.get("start_frame")):
+                    self.renderInfo(croped_frame, database, target_anchor, self.frame_count) # add info to the frame
+                    self.target_anchor = target_anchor
+                else:
+                    self.target_anchor = None
+                cv2.moveWindow("hmi", 10, 0)
+                cv2.imshow("hmi", croped_frame) # render
+            else:
+                cv2.moveWindow("hmi", 10, 0)
+                cv2.imshow("hmi", frame) # render
 
-            expand_rate = self.video_res.get("x")/(crop_anchor.get("xbr")-crop_anchor.get("xtl"))
-            obj_anchor = self.calcAnchor(self.database.get("anchor")[self.frame_count], crop_anchor, expand_rate)
-            # obj_anchor = self.calcAnchor(self.database.get("anchor")[frame_count-int(database.get("start_frame"))], crop_anchor, expand_rate)
-            croped_frame = self.cropResizeFrame(frame, crop_anchor, expand_rate)
-            if self.frame_count < (self.database.get("critical_point") - self.database.get("start_frame")):
-                self.renderInfo(croped_frame, self.database, obj_anchor, self.frame_count) # add info to the frame
-
-            cv2.moveWindow("hmi", 10, 0)
-            cv2.imshow("hmi", croped_frame) # render
-
-            # croped_frame = self.cropFrame(frame, self.windshield_anchor, self.windshield_expand_rate)
-            # cv2.imshow("windshield", croped_frame) # render
-            # cv2.moveWindow("windshield", 10, 0)
+            croped_frame = self.cropResizeFrame(frame, self.windshield_anchor, self.windshield_res)
+            cv2.imshow("windshield", croped_frame) # render
+            cv2.moveWindow("windshield", 10, 0)
             #  calc sleep time to keep frame rate to be same with video rate
             sleep_time = max(int((1000 / (30) - (time.time() - start))), 1)
             # sleep and wait quit key
@@ -350,21 +447,20 @@ class PIEVisualize():
 
         cv2.destroyAllWindows()
 
-        # with open(self.log_file, 'w') as f:
-        #     writer = csv.writer(f)
-        #     writer.writerow(['display_frame', 'display_time', 'id', 'obj_type', 'prob', 'framein_point', 'frameout_point', 'intervene_type', 'intervene_frame', 'intervene_time', 'intervene_key'])
-        #     writer.writerows(self.log)
-
+        with open(self.log_file, 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(['id', "is_conservative", 'int_method', "int_count", "first_int_frame", "first_int_time", "last_int_frame", "last_int_time", "last_state"])
+            writer.writerows(self.log)
 
 if __name__ == "__main__":
 
     with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database.pkl", 'rb') as f:
         database = pickle.load(f)
 
-    # print(database.keys())
-    ids = random.choices(list(database.keys()), k=5)
-    # with PIEVisualize() as pie_visualize:
-    pie_visualize = PIEVisualize()
+    ids = random.choices(list(database.keys()), k=20)
+    # ids = ["3_18_283tl_3.0"]
     print(ids)
-    for id in ids:
-        pie_visualize.play(database.get(id))
+    # pie_visualize = PIEVisualize()
+    with PIEVisualize() as pie_visualize:
+        for id in ids:
+            pie_visualize.play(database.get(id))

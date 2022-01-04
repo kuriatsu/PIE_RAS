@@ -88,6 +88,7 @@ def getVehicleDirection(vehicle_root, start_frame, end_frame):
 def getAnchor(track, start_frame, end_frame, crop_value, crop_rate):
     anchor_list = []
     for frame in range(start_frame, end_frame+1):
+        is_found = False
         for box in track.iter("box"):
             if int(box.get("frame")) == frame:
                 anchor = {
@@ -101,8 +102,11 @@ def getAnchor(track, start_frame, end_frame, crop_value, crop_rate):
                     "ytl": int(float(box.get('ytl'))),
                     }
                 anchor_list.append(anchor)
-
+                is_found = True
                 break
+        if not is_found:
+            anchor_list.append({})
+
     return anchor_list
 
 
