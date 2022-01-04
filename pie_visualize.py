@@ -53,7 +53,7 @@ class PIEVisualize():
         self.is_checked_thres = 0.5
 
         self.log_file = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log_data.csv"
-        self.hmi_image_offset_rate_y = 0.1 # rate
+        self.hmi_image_offset_rate_y = 0.2 # rate
         self.hmi_crop_margin = 40 # px
         self.hmi_crop_rate_max = 0.4
         self.hmi_crop_rate = 0.6
@@ -230,17 +230,6 @@ class PIEVisualize():
             2
             )
 
-        # future trajectory
-        arrow_color = 'green' if self.is_checked else 'red'
-        arrow_info = self.icon_dict.get(f"{database.get('future_direction')}_{arrow_color}")
-        arrow_position = {
-            'ytl': int(len(frame[0]) - 50),
-            'xtl': int(len(frame[1]) / 2 - arrow_info.get('roi')[1]/2),
-            'ybr': int(len(frame[0]) - 50 + arrow_info.get('roi')[0]),
-            'xbr': int(len(frame[1]) / 2 + arrow_info.get('roi')[1]/2)
-        }
-        self.drawIcon(frame, arrow_info, arrow_position)
-
         ## show probability
         # cv2.putText(
         #     image,
@@ -272,7 +261,7 @@ class PIEVisualize():
         """
 
         if position.get('ytl') < 0 or position.get('ybr') > self.video_res.get("y") or position.get('xtl') < 0 or position.get('xbr') > self.video_res.get("x"):
-            # print(f"icon is out of range y:{position.get('ytl')}-{position.get('ybr')}, x:{position.get('xtl')}-{position.get('xbr')}")
+            print(f"icon is out of range y:{position.get('ytl')}-{position.get('ybr')}, x:{position.get('xtl')}-{position.get('xbr')}")
             return
 
         # put icon on frame
@@ -325,6 +314,19 @@ class PIEVisualize():
         # thickness=16,
         # lineType=cv2.LINE_AA
         # )
+
+
+    def showTrajectory(self, frame, database):
+        # future trajectory
+        arrow_color = 'green' if self.is_checked else 'red'
+        arrow_info = self.icon_dict.get(f"{database.get('future_direction')}_{arrow_color}")
+        arrow_position = {
+            'ytl': int(self.hmi_res.get("y") - 200),
+            'ybr': int(self.hmi_res.get("y") - 200 + arrow_info.get('roi')[0]),
+            'xtl': int(self.hmi_res.get("x") / 2 - arrow_info.get('roi')[1]/2),
+            'xbr': int(self.hmi_res.get("x") / 2 + arrow_info.get('roi')[1]/2)
+            }
+        self.drawIcon(frame, arrow_info, arrow_position)
 
 
     def getHMICropAnchor(self, obj_anchor, video_res):
@@ -417,9 +419,12 @@ class PIEVisualize():
                     self.target_anchor = target_anchor
                 else:
                     self.target_anchor = None
+                    
+                self.showTrajectory(croped_frame, database)
                 cv2.moveWindow("hmi", 10, 0)
                 cv2.imshow("hmi", croped_frame) # render
             else:
+                self.showTrajectory(croped_frame, database)
                 cv2.moveWindow("hmi", 10, 0)
                 cv2.imshow("hmi", frame) # render
 

@@ -7,6 +7,9 @@ import numpy as np
 import pickle
 import threading
 import random
+from multiprocessing import Pool, Manager
+# import threading
+
 def getVideo(filename, image_offset_y, crop_rate):
 
     try:
@@ -70,19 +73,19 @@ def cutVideo(video, start_frame, end_frame, video_name, crop_value, expand_rate)
 
 def getVehicleDirection(vehicle_root, start_frame, end_frame):
     dist_buf = 0
-    for i in range(start_frame, len(vehicle_root)):
-        dist_buf += float(vehicle_root[i].get('OBD_speed')) * 0.03 / 3.6
-        future_angle = float(vehicle_root[end_frame].get('yaw')) - float(vehicle_root[i].get('yaw'))
-        if dist_buf > 50:
-            break
-
-    if 1.0 < abs(future_angle) % 3.14 < 2.0:
-        if future_angle > 0.0:
-            return 'right'
-        else:
-            return 'left'
-    else:
+    # for i in range(start_frame, len(vehicle_root)):
+    #     dist_buf += float(vehicle_root[i].get('OBD_speed')) * 0.03 / 3.6
+    #     future_angle = float(vehicle_root[end_frame].get('yaw')) - float(vehicle_root[i].get('yaw'))
+    #     if dist_buf > 50:
+    #         break
+    angle_diff = float(vehicle_root[end_frame].get("yaw")) - float(vehicle_root[start_frame].get("yaw"))
+    if 1.0 < abs(angle_diff):
         return 'straight'
+    else:
+        if angle_diff > 0.0:
+            return 'left'
+        else:
+            return 'right'
 
 
 def getAnchor(track, start_frame, end_frame, crop_value, crop_rate):
@@ -110,80 +113,16 @@ def getAnchor(track, start_frame, end_frame, crop_value, crop_rate):
     return anchor_list
 
 
-base_dir = "/media/kuriatsu/SamsungKURI/PIE_data"
-
-result_file_list = [
-    base_dir + "/extracted_data/predict/test/result_0-150.pkl",
-    base_dir + "/extracted_data/predict/test/result_151-300.pkl",
-    base_dir + "/extracted_data/predict/test/result_301-450.pkl",
-    base_dir + "/extracted_data/predict/test/result_451-600.pkl",
-    base_dir + "/extracted_data/predict/test/result_601-719.pkl",
-    ]
-
-# load prediction result
-prediction_data = []
-for file in result_file_list:
-    with open(file, "rb") as f:
-        prediction_data+=pickle.load(f)
-
-# get final prediction result for each pedestrian
-result_dict = {}
-for buf in prediction_data:
-    result_dict[buf.get("ped_id")] = float(buf.get("res"))
-
-set_list = ["set03"]
-
-video_list = [
-    "set03/video_0001",
-    "set03/video_0002",
-    "set03/video_0003",
-    "set03/video_0004",
-    "set03/video_0005",
-    "set03/video_0006",
-    "set03/video_0007",
-    "set03/video_0008",
-    "set03/video_0009",
-    "set03/video_0010",
-    "set03/video_0011",
-    "set03/video_0012",
-    "set03/video_0013",
-    "set03/video_0014",
-    "set03/video_0015",
-    "set03/video_0016",
-    "set03/video_0017",
-    "set03/video_0018",
-    "set03/video_0019",
-]
-
-
-image_offset_y = 0.2
-crop_rate =  0.6
-expand_rate = 1.0 / crop_rate
-database = {}
-int_length_list = [1.0, 3.0, 5.0, 7.0 ,9.0]
-
-for video in video_list:
-    annt_attribute_root = getXmlRoot("{}/annotations_attributes/{}_attributes.xml".format(base_dir, video))
-    annt_root = getXmlRoot("{}/annotations/{}_annt.xml".format(base_dir, video))
-    ego_vehicle_root = getXmlRoot("{}/annotations_vehicle/{}_obd.xml".format(base_dir, video))
-    video_file = "{}/PIE_clips/{}.mp4".format(base_dir, video)
+def process(database, video_name):
+    image_offset_y = 0.2
+    crop_rate =  0.6
+    expand_rate = 1.0 / crop_rate
+    int_length_list = [1.0, 3.0, 5.0, 7.0 ,9.0]
+    annt_attribute_root = getXmlRoot("{}/annotations_attributes/{}_attributes.xml".format(base_dir, video_name))
+    annt_root = getXmlRoot("{}/annotations/{}_annt.xml".format(base_dir, video_name))
+    ego_vehicle_root = getXmlRoot("{}/annotations_vehicle/{}_obd.xml".format(base_dir, video_name))
+    video_file = "{}/PIE_clips/{}.mp4".format(base_dir, video_name)
     video, _, _, crop_value = getVideo(video_file, image_offset_y, crop_rate)
-
-    # {"name" :
-    #     {
-    #      "video_file" : str,
-    #      "id" : str,
-    #      "label" : str,
-    #      "length" : float,
-    #      "prob" : float,
-    #      "results" : float,
-    #      "anchor" : [{xbr:, xtl:, ybr:, ytl:},...],
-    #      "future_direction" : str,
-    #      "critical_point" : float,
-    #      "crossing_point" : int,
-    #      "start_point" : int,
-    #     }
-    # }
 
     for track in annt_root.iter("track"):
         if track.get("label") == "pedestrian":
@@ -310,5 +249,84 @@ for video in video_list:
 
                 database[name] = video_database
 
-with open("{}/extracted_data/database.pkl".format(base_dir), "wb") as f:
-    pickle.dump(database, f)
+
+base_dir = "/media/kuriatsu/SamsungKURI/PIE_data"
+
+result_file_list = [
+    base_dir + "/extracted_data/predict/test/result_0-150.pkl",
+    base_dir + "/extracted_data/predict/test/result_151-300.pkl",
+    base_dir + "/extracted_data/predict/test/result_301-450.pkl",
+    base_dir + "/extracted_data/predict/test/result_451-600.pkl",
+    base_dir + "/extracted_data/predict/test/result_601-719.pkl",
+    ]
+
+# load prediction result
+prediction_data = []
+for file in result_file_list:
+    with open(file, "rb") as f:
+        prediction_data+=pickle.load(f)
+
+# get final prediction result for each pedestrian
+result_dict = {}
+for buf in prediction_data:
+    result_dict[buf.get("ped_id")] = float(buf.get("res"))
+
+set_list = ["set03"]
+
+video_list = [
+    "set03/video_0001",
+    "set03/video_0002",
+    "set03/video_0003",
+    "set03/video_0004",
+    "set03/video_0005",
+    "set03/video_0006",
+    "set03/video_0007",
+    "set03/video_0008",
+    "set03/video_0009",
+    "set03/video_0010",
+    "set03/video_0011",
+    "set03/video_0012",
+    "set03/video_0013",
+    "set03/video_0014",
+    "set03/video_0015",
+    "set03/video_0016",
+    "set03/video_0017",
+    "set03/video_0018",
+    "set03/video_0019",
+]
+
+
+# t_list = []
+with Manager() as manager:
+    p = Pool(4)
+    database = manager.dict()
+    # database = {}
+    for video in video_list:
+        p.apply_async(process, args=(database, video))
+
+    p.close()
+    p.join()
+    #     t = threading.Thread(target=process, args=(database, video))
+    #     t.start()
+    #     t_list.append(t)
+    #
+    # for t in t_list:
+    #     t.join()
+        # {"name" :
+        #     {
+        #      "video_file" : str,
+        #      "id" : str,
+        #      "label" : str,
+        #      "length" : float,
+        #      "prob" : float,
+        #      "results" : float,
+        #      "anchor" : [{xbr:, xtl:, ybr:, ytl:},...],
+        #      "future_direction" : str,
+        #      "critical_point" : float,
+        #      "crossing_point" : int,
+        #      "start_point" : int,
+        #     }
+        # }
+    print(database.keys())
+    with open("{}/extracted_data/database.pkl".format(base_dir), "wb") as f:
+        pickle.dump(manager.dict(database), f)
