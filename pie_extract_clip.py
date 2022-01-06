@@ -5,7 +5,6 @@ import cv2
 import xml.etree.ElementTree as ET
 import numpy as np
 import pickle
-import threading
 import random
 from multiprocessing import Pool, Manager
 # import threading
