@@ -78,14 +78,28 @@ def getVehicleDirection(vehicle_root, start_frame, end_frame):
     #     future_angle = float(vehicle_root[end_frame].get('yaw')) - float(vehicle_root[i].get('yaw'))
     #     if dist_buf > 50:
     #         break
-    angle_diff = float(vehicle_root[end_frame].get("yaw")) - float(vehicle_root[start_frame].get("yaw"))
-    if 1.0 < abs(angle_diff):
+
+    # get frame 10m before the end_frame
+    mileage = 0
+    target_frame = 0
+    for i in range(end_frame, len(vehicle_root)):
+        mileage += float(vehicle_root[i].get("OBD_speed"))/(3.6*30)
+        if mileage > 10:
+            target_frame = i
+            break
+    if target_frame == 0:
+        target_frame = len(vehicle_root)-1
+
+    # get outer prod between 10m after end_frame and start_frame+0.1sec
+    angle_diff = float(vehicle_root[target_frame].get("yaw")) - float(vehicle_root[start_frame+10].get("yaw"))
+    prod = np.sin(angle_diff)
+    if 0.4 > abs(prod):
         return 'straight'
     else:
-        if angle_diff > 0.0:
-            return 'left'
-        else:
+        if prod > 0.0:
             return 'right'
+        else:
+            return 'left'
 
 
 def getAnchor(track, start_frame, end_frame, crop_value, crop_rate):
@@ -295,8 +309,7 @@ video_list = [
     "set03/video_0019",
 ]
 
-
-# t_list = []
+## multi processing
 with Manager() as manager:
     p = Pool(4)
     database = manager.dict()
@@ -306,27 +319,17 @@ with Manager() as manager:
 
     p.close()
     p.join()
-    #     t = threading.Thread(target=process, args=(database, video))
-    #     t.start()
-    #     t_list.append(t)
-    #
-    # for t in t_list:
-    #     t.join()
-        # {"name" :
-        #     {
-        #      "video_file" : str,
-        #      "id" : str,
-        #      "label" : str,
-        #      "length" : float,
-        #      "prob" : float,
-        #      "results" : float,
-        #      "anchor" : [{xbr:, xtl:, ybr:, ytl:},...],
-        #      "future_direction" : str,
-        #      "critical_point" : float,
-        #      "crossing_point" : int,
-        #      "start_point" : int,
-        #     }
-        # }
-    print(database.keys())
+    print(dict(database).keys())
+
     with open("{}/extracted_data/database.pkl".format(base_dir), "wb") as f:
-        pickle.dump(manager.dict(database), f)
+        pickle.dump(dict(database), f)
+
+
+
+## single process
+# database = {}
+# for video in video_list:
+#     process(database, video)
+#
+# with open("{}/extracted_data/database.pkl".format(base_dir), "wb") as f:
+#     pickle.dump(database, f)
