@@ -160,7 +160,8 @@ def process(database, video_name):
                     "id" : ped_id,
                     "label" : "pedestrian",
                     "int_length" : 0,
-                    "prob" : ped_attrib.get("intention_prob"),
+                    "prob" : float(ped_attrib.get("intention_prob")),
+                    # "results" : float(ped_attrib.get("intention_prob")),
                     "results" : result_dict.get(ped_id),
                     "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
                     "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
@@ -188,7 +189,8 @@ def process(database, video_name):
                     "id" : ped_id,
                     "label" : "pedestrian",
                     "int_length" : int_length,
-                    "prob" : ped_attrib.get("intention_prob"),
+                    "prob" : float(ped_attrib.get("intention_prob")),
+                    # "results" : float(ped_attrib.get("intention_prob")),
                     "results" : result_dict.get(ped_id),
                     "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
                     "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
@@ -271,6 +273,8 @@ result_file_list = [
     base_dir + "/extracted_data/predict/test/result_301-450.pkl",
     base_dir + "/extracted_data/predict/test/result_451-600.pkl",
     base_dir + "/extracted_data/predict/test/result_601-719.pkl",
+    # base_dir + "/extracted_data/predict/val/result_0-150.pkl",
+    # base_dir + "/extracted_data/predict/val/result_151-243.pkl",
     ]
 
 # load prediction result
@@ -306,6 +310,8 @@ video_list = [
     "set03/video_0017",
     "set03/video_0018",
     "set03/video_0019",
+    # "set05/video_0001",
+    # "set05/video_0002",
 ]
 
 ## multi processing

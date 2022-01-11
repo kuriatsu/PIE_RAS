@@ -5,7 +5,7 @@ import pickle
 import random
 import csv
 
-with open("/run/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database.pkl", 'rb') as f:
+with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database.pkl", 'rb') as f:
     database = pickle.load(f)
 
 tr_count = 0
@@ -27,7 +27,9 @@ for i in range(0, 20):
     for int_length in [0.0, 1.0, 3.0, 5.0, 7.0 ,9.0]:
         ped_candidate = []
         tl_candidate = []
-        for name in database.keys():
+        for name, val in database.items():
+            if val.get("results") is None:
+                continue
             if float(name.rsplit("_", 1)[-1]) == int_length and name.rsplit("_", 1)[0] not in reserved_list:
                 if name.rsplit("_", 1)[0].endswith("tl"):
                     tl_candidate.append(name)
@@ -56,6 +58,6 @@ for i in range(0, 20):
     out_list.append(playlist)
 
 
-with open("/run/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist.csv", 'w') as f:
+with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist.csv", 'w') as f:
     writer = csv.writer(f)
     writer.writerows(out_list)

@@ -7,6 +7,7 @@ import numpy as np
 import time
 import random
 import csv
+import copy
 
 class PIERas():
     def __init__(self):
@@ -28,8 +29,8 @@ class PIERas():
         self.windshield_anchor = {
             "xtl": 0,
             "xbr": 1920,
-            "ytl": int((1-1920/3840)*0.5*1920),
-            "ybr": int((0.5+1920/3840*0.5)*1920),
+            "ytl": int((1-1920/3840)*0.5*1080)+200,
+            "ybr": int((0.5+1920/3840*0.5)*1080)+200,
             }
         self.windshield_res = {"x": 3840, "y": 1080}
 
@@ -44,10 +45,9 @@ class PIERas():
         self.prepareEventHandler()
         self.prepareIcon("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons")
         cv2.namedWindow("hmi", cv2.WND_PROP_FULLSCREEN)
-
-        # cv2.setWindowProperty("hmi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        # cv2.namedWindow("windshield", cv2.WND_PROP_FULLSCREEN)
-        # cv2.setWindowProperty("windshield", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.setWindowProperty("hmi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.namedWindow("windshield", cv2.WND_PROP_FULLSCREEN)
+        cv2.setWindowProperty("windshield", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     def __enter__(self):
         return self
@@ -172,7 +172,7 @@ class PIERas():
 
         if database.get('label') == 'pedestrian':
             if self.is_checked:
-                icon = self.icon_dict.get("walker_checked")
+                icon = self.icon_dict.get("walker_stand")
             else:
                 if obj_anchor.get('xbr') < self.video_res.get("x") * 0.5:
                     icon = self.icon_dict.get("walker_cross_to_right")
@@ -288,8 +288,8 @@ class PIERas():
         arrow_color = 'green' if self.is_checked else 'red'
         arrow_info = self.icon_dict.get(f"{database.get('future_direction')}_{arrow_color}")
         arrow_position = {
-            'ytl': int(self.hmi_res.get("y") - 200),
-            'ybr': int(self.hmi_res.get("y") - 200 + arrow_info.get('roi')[0]),
+            'ytl': int(self.hmi_res.get("y") - 250),
+            'ybr': int(self.hmi_res.get("y") - 250 + arrow_info.get('roi')[0]),
             'xtl': int(self.hmi_res.get("x") / 2 - arrow_info.get('roi')[1]/2),
             'xbr': int(self.hmi_res.get("x") / 2 + arrow_info.get('roi')[1]/2)
             }
@@ -357,6 +357,7 @@ class PIERas():
         video.set(cv2.CAP_PROP_POS_FRAMES, database.get("start_frame"))
         ret, frame = video.read()
         self.frame_count = 0
+        print(database.get("id"), database.get("results"), database.get("prob"))
 
         if not self.is_conservative and database.get("results") < self.is_checked_thres:
             self.is_checked = True
@@ -374,7 +375,6 @@ class PIERas():
             self.is_checked, # last_state
             ])
 
-        print(database.get("id"), database.get("results"), database.get("prob"))
         while ret and database.get("crossing_point") - database.get("start_frame") > self.frame_count:
             start = time.time()
             if any(database.get("anchor")[self.frame_count]):
@@ -388,16 +388,18 @@ class PIERas():
                     self.target_anchor = None
 
                 self.showTrajectory(croped_frame, database)
-                cv2.moveWindow("hmi", 10, 0)
+                cv2.moveWindow("hmi", self.windshield_res.get("x"), 0)
                 cv2.imshow("hmi", croped_frame) # render
             else:
+                # show image without boundingbox
+                croped_frame = copy.deepcopy(frame)
                 self.showTrajectory(croped_frame, database)
-                cv2.moveWindow("hmi", 10, 0)
-                cv2.imshow("hmi", frame) # render
+                cv2.moveWindow("hmi", self.windshield_res.get("x"), 0)
+                cv2.imshow("hmi", croped_frame) # render
 
             croped_frame = self.cropResizeFrame(frame, self.windshield_anchor, self.windshield_res)
             cv2.imshow("windshield", croped_frame) # render
-            cv2.moveWindow("windshield", 10, 0)
+            cv2.moveWindow("windshield", 0, 0)
             #  calc sleep time to keep frame rate to be same with video rate
             sleep_time = max(int((1000 / (30) - (time.time() - start))), 1)
             # sleep and wait quit key
@@ -419,14 +421,14 @@ class PIERas():
 
         cv2.destroyAllWindows()
 
-        with open(self.log_file, 'w') as f:
+        with open(self.log_file, 'a') as f:
             writer = csv.writer(f)
             writer.writerow(['id', "is_conservative", 'int_method', "int_count", "first_int_frame", "first_int_time", "last_int_frame", "last_int_time", "last_state"])
             writer.writerows(self.log)
 
 if __name__ == "__main__":
 
-    with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database.pkl", 'rb') as f:
+    with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_test.pkl", 'rb') as f:
         database = pickle.load(f)
 
     ids = random.choices(list(database.keys()), k=20)
