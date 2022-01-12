@@ -14,6 +14,7 @@ from pygame.locals import JOYBUTTONUP, JOYBUTTONDOWN
 class PIERas():
     def __init__(self):
         self.is_conservative = False
+        self.is_pygame = False
         self.is_checked_thres = 0.5
 
         self.log_file = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log_data.csv"
@@ -45,13 +46,18 @@ class PIERas():
 
         self.log = []
 
-        self.prepareEventHandler()
         self.prepareIcon("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons")
-        cv2.namedWindow("hmi", cv2.WND_PROP_FULLSCREEN)
-        cv2.setWindowProperty("hmi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
         cv2.namedWindow("windshield", cv2.WND_PROP_FULLSCREEN)
         cv2.setWindowProperty("windshield", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.moveWindow("windshield", 0, 0)
+        cv2.namedWindow("hmi", cv2.WND_PROP_FULLSCREEN)
+        cv2.setWindowProperty("hmi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.moveWindow("hmi", self.windshield_res.get("x"), 0)
+        self.prepareEventHandler()
 
+        pygame.init()
+        # self.screen_hmi = pygame.display.set_mode((1, 1))
         pygame.joystick.init()
         self.joystick = pygame.joystick.Joystick(0)
         self.joystick.init()
@@ -121,7 +127,7 @@ class PIERas():
     def prepareEventHandler(self):
         """add mouse click callback to the window
         """
-        cv2.namedWindow("hmi")
+        # cv2.namedWindow("hmi")
         cv2.setMouseCallback("hmi", self.touchCallback)
 
 
@@ -359,6 +365,24 @@ class PIERas():
         return out_anchor
 
 
+    def convertCvImageToPygame(self, frame):
+        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).swapaxes(0, 1)
+        # return pygame.surfarray.make_surface(rgb_image)
+        # 同じ画像サイズで生成済のSurfaceをキャッシュから取得する
+        cache_key = rgb_image.shape
+        cached_surface = self.pygame_surface_cache.get(cache_key)
+
+        if cached_surface is None:
+            # OpenCVの画像を元に、Pygameで画像を描画するためのSurfaceを生成する
+            cached_surface = pygame.surfarray.make_surface(rgb_image)
+            # Surfaceをキャッシュに追加
+            self.pygame_surface_cache[cache_key] = cached_surface
+        else:
+            # 同じ画像サイズのSurfaceが見つかった場合は、すでに生成したSurfaceを使い回す
+            pygame.surfarray.blit_array(cached_surface, rgb_image)
+
+        return cached_surface
+
     def play(self, database):
         video = self.getVideo(database.get("video_file"))
         video.set(cv2.CAP_PROP_POS_FRAMES, database.get("start_frame"))
@@ -395,43 +419,40 @@ class PIERas():
                     self.target_anchor = None
 
                 self.showTrajectory(croped_frame, database)
-                cv2.moveWindow("hmi", self.windshield_res.get("x"), 0)
                 cv2.imshow("hmi", croped_frame) # render
             else:
                 # show image without boundingbox
                 croped_frame = copy.deepcopy(frame)
                 self.showTrajectory(croped_frame, database)
-                cv2.moveWindow("hmi", self.windshield_res.get("x"), 0)
                 cv2.imshow("hmi", croped_frame) # render
 
             croped_frame = self.cropResizeFrame(frame, self.windshield_anchor, self.windshield_res)
             cv2.imshow("windshield", croped_frame) # render
-            cv2.moveWindow("windshield", 0, 0)
+
+            for e in pygame.event.get():
+                if e.type == JOYBUTTONDOWN and e.button == 23:
+                    if not self.is_pushed:
+                        self.buttonCallback(e.button)
+                    self.is_pushed = True
+                elif e.type == JOYBUTTONUP and e.button == 23:
+                    self.is_pushed = False
+
             #  calc sleep time to keep frame rate to be same with video rate
             sleep_time = max(int((1000 / (30) - (time.time() - start))), 1)
             # sleep and wait quit key
             key = cv2.waitKey(sleep_time) & 0xFF
-            if key != 255 : print(key)
-            if key == ord('q'):
-                exit(1)
-            if key == 13 or key == ord('y') or key == ord('n'):
-                self.buttonCallback(key)
+            # if key != 255 : print(key)
+            # if key == ord('q'):
+            #     exit(1)
+            # if key == 13 or key == ord('y') or key == ord('n'):
+            #     self.buttonCallback(key)
                 # break
-
-            # joystick
-            for e in pygame.event.get():
-                if e.type == JOYBUTTONDOWN and e.button == 1:
-                    if not self.is_pushed:
-                        self.buttonCallback(13)
-                    self.is_pushed = True
-                elif e.type == JOYBUTTONUP and e.button == 1:
-                    self.is_pushed = False
-
 
             ret, frame = video.read()
             self.frame_count += 1
 
         video.release()
+
 
     def __exit__(self, exc_type, exc_value, traceback):
         print('delete instance... type: {}, value: {}, traceback: {}'.format(exc_type, exc_value, traceback))
