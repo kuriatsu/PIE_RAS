@@ -8,6 +8,8 @@ import time
 import random
 import csv
 import copy
+import pygame
+from pygame.locals import JOYBUTTONUP, JOYBUTTONDOWN
 
 class PIERas():
     def __init__(self):
@@ -39,6 +41,7 @@ class PIERas():
 
         self.icon_dict = {}
         self.is_checked = False
+        self.is_pushed = False
 
         self.log = []
 
@@ -48,6 +51,10 @@ class PIERas():
         cv2.setWindowProperty("hmi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         cv2.namedWindow("windshield", cv2.WND_PROP_FULLSCREEN)
         cv2.setWindowProperty("windshield", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+        pygame.joystick.init()
+        self.joystick = pygame.joystick.Joystick(0)
+        self.joystick.init()
 
     def __enter__(self):
         return self
@@ -410,6 +417,16 @@ class PIERas():
             if key == 13 or key == ord('y') or key == ord('n'):
                 self.buttonCallback(key)
                 # break
+
+            # joystick
+            for e in pygame.event.get():
+                if e.type == JOYBUTTONDOWN and e.button == 1:
+                    if not self.is_pushed:
+                        self.buttonCallback(13)
+                    self.is_pushed = True
+                elif e.type == JOYBUTTONUP and e.button == 1:
+                    self.is_pushed = False
+
 
             ret, frame = video.read()
             self.frame_count += 1
