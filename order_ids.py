@@ -38,7 +38,8 @@ for i in range(0, 20):
 
         print("ped {} num:, {}".format(int_length, len(ped_candidate)), 30*rate)
 
-        if len(ped_candidate) <= 20*rate:
+        if len(ped_candidate) <= 20:
+        # if len(ped_candidate) <= 20*rate:
             reserved_list += [id.rsplit("_", 1)[0] for id in ped_candidate]
             playlist += ped_candidate
         else:
@@ -46,13 +47,13 @@ for i in range(0, 20):
             reserved_list += [id.rsplit("_", 1)[0] for id in list]
             playlist += list
 
-        if len(tl_candidate) <= 20*(1.0 - rate):
-            reserved_list += [id.rsplit("_", 1)[0] for id in tl_candidate]
-            playlist += tl_candidate
-        else:
-            list = random.choices(tl_candidate, k=int(20*(1.0-rate)))
-            reserved_list += [id.rsplit("_", 1)[0] for id in list]
-            playlist += list
+        # if len(tl_candidate) <= 20*(1.0 - rate):
+        #     reserved_list += [id.rsplit("_", 1)[0] for id in tl_candidate]
+        #     playlist += tl_candidate
+        # else:
+        #     list = random.choices(tl_candidate, k=int(20*(1.0-rate)))
+        #     reserved_list += [id.rsplit("_", 1)[0] for id in list]
+        #     playlist += list
 
     print(playlist)
     out_list.append(playlist)
