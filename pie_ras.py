@@ -13,7 +13,7 @@ from pygame.locals import JOYBUTTONUP, JOYBUTTONDOWN
 
 class PIERas():
     def __init__(self):
-        self.is_conservative = False
+        self.is_conservative = True
         self.is_pygame = False
         self.is_checked_thres = 0.5
 
