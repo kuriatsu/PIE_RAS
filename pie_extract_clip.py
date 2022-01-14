@@ -130,7 +130,7 @@ def process(database, video_name):
     image_offset_y = 0.2
     crop_rate =  0.6
     expand_rate = 1.0 / crop_rate
-    int_length_list = [1.0, 3.0, 5.0, 7.0 ,9.0]
+    int_length_list = [3.0, 5.0, 7.0 ,9.0, 12.0]
     annt_attribute_root = getXmlRoot("{}/annotations_attributes/{}_attributes.xml".format(base_dir, video_name))
     annt_root = getXmlRoot("{}/annotations/{}_annt.xml".format(base_dir, video_name))
     ego_vehicle_root = getXmlRoot("{}/annotations_vehicle/{}_obd.xml".format(base_dir, video_name))
@@ -145,12 +145,16 @@ def process(database, video_name):
                     print(ped_id)
             ped_attrib = getAtrrib(annt_attribute_root, ped_id)
             max_len = (int(ped_attrib.get("critical_point")) - int(track[0].get("frame")))/30
-
             # short video
             if int_length_list[0] > max_len:
                 name = "{}_{}".format(ped_id, 0.0)
                 start_frame = int(track[0].get("frame"))
                 end_frame = int(track[-1].get("frame"))
+                if result_dict.get(ped_id).get(start_frame) is None:
+                    prediction = result_dict.get(ped_id).get(min(result_dict.get(ped_id).keys()))
+                else:
+                    prediction = result_dict.get(ped_id).get(start_frame)
+
                 print("short", name, start_frame, int(ped_attrib.get("crossing_point")))
                 # cutVideo(video, start_frame, end_frame, video_name, crop_value, expand_rate)
                 # print("short video : {} - {}s {}->{}".format(ped_id, max_len, start_frame, end_frame))
@@ -162,12 +166,12 @@ def process(database, video_name):
                     "int_length" : 0,
                     "prob" : float(ped_attrib.get("intention_prob")),
                     # "results" : float(ped_attrib.get("intention_prob")),
-                    "results" : result_dict.get(ped_id),
+                    "results" : prediction,
                     "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
                     "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
-                    "critical_point" : float(ped_attrib.get("critical_point")),
-                    "crossing_point" : int(ped_attrib.get("crossing_point")),
-                    "start_frame" : int(track[0].get("frame"))
+                    "critical_point" : int(ped_attrib.get("critical_point")),
+                    "crossing_point" : min(int(ped_attrib.get("crossing_point")), int(ped_attrib.get("critical_point"))+150),
+                    "start_frame" : start_frame
                 }
 
                 database[name] = video_database
@@ -180,6 +184,10 @@ def process(database, video_name):
                 # video_name = "{}/extracted_data/{}_ped_{}_{}.mp4".format(base_dir, video_list[0], ped_id, int_length)
                 start_frame = int(int(ped_attrib.get("critical_point")) - int_length * 30)
                 end_frame = int(track[-1].get("frame"))
+                if result_dict.get(ped_id).get(start_frame) is None:
+                    prediction = result_dict.get(ped_id).get(min(result_dict.get(ped_id).keys()))
+                else:
+                    prediction = result_dict.get(ped_id).get(start_frame)
                 print("long", name, start_frame, int(ped_attrib.get("crossing_point")))
                 # cutVideo(video, start_frame, end_frame, video_name, crop_value, expand_rate)
                 # print("start cut :{}- {}s {}->{}".format(ped_id, int_length, start_frame, end_frame))
@@ -191,11 +199,11 @@ def process(database, video_name):
                     "int_length" : int_length,
                     "prob" : float(ped_attrib.get("intention_prob")),
                     # "results" : float(ped_attrib.get("intention_prob")),
-                    "results" : result_dict.get(ped_id),
+                    "results" : prediction,
                     "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
                     "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
                     "critical_point" : float(ped_attrib.get("critical_point")),
-                    "crossing_point" : int(ped_attrib.get("crossing_point")),
+                    "crossing_point" : min(int(ped_attrib.get("crossing_point")), int(ped_attrib.get("critical_point"))+150),
                     "start_frame" : start_frame
                 }
 
@@ -230,7 +238,7 @@ def process(database, video_name):
                     "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
                     "critical_point" : float(track[-1].get('frame')),
                     "crossing_point" : int(track[-1].get('frame')),
-                    "start_frame" : int(track[0].get("frame"))
+                    "start_frame" : start_frame
                 }
 
                 database[name] = video_database
@@ -269,10 +277,10 @@ base_dir = "/media/kuriatsu/SamsungKURI/PIE_data"
 
 result_file_list = [
     base_dir + "/extracted_data/predict/test/result_0-150.pkl",
-    base_dir + "/extracted_data/predict/test/result_151-300.pkl",
-    base_dir + "/extracted_data/predict/test/result_301-450.pkl",
-    base_dir + "/extracted_data/predict/test/result_451-600.pkl",
-    base_dir + "/extracted_data/predict/test/result_601-719.pkl",
+    base_dir + "/extracted_data/predict/test/result_150-300.pkl",
+    base_dir + "/extracted_data/predict/test/result_300-450.pkl",
+    base_dir + "/extracted_data/predict/test/result_450-600.pkl",
+    base_dir + "/extracted_data/predict/test/result_600-719.pkl",
     # base_dir + "/extracted_data/predict/val/result_0-150.pkl",
     # base_dir + "/extracted_data/predict/val/result_151-243.pkl",
     ]
@@ -283,10 +291,15 @@ for file in result_file_list:
     with open(file, "rb") as f:
         prediction_data+=pickle.load(f)
 
+prediction_data[0]
 # get final prediction result for each pedestrian
 result_dict = {}
 for buf in prediction_data:
-    result_dict[buf.get("ped_id")] = float(buf.get("res"))
+    frame = int(buf.get("imp").split("/")[-1].replace(".png", ""))
+    if result_dict.get(buf.get("ped_id")) is None:
+        result_dict[buf.get("ped_id")] = {frame : float(buf.get("res"))}
+    else:
+        result_dict[buf.get("ped_id")][frame] = float(buf.get("res"))
 
 set_list = ["set03"]
 
@@ -326,7 +339,7 @@ with Manager() as manager:
     p.join()
     print(dict(database).keys())
 
-    with open("{}/extracted_data/database.pkl".format(base_dir), "wb") as f:
+    with open("{}/extracted_data/database_result_valid.pkl".format(base_dir), "wb") as f:
         pickle.dump(dict(database), f)
 
 

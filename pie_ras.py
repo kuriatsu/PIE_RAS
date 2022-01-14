@@ -13,7 +13,6 @@ from pygame.locals import JOYBUTTONUP, JOYBUTTONDOWN
 
 class PIERas():
     def __init__(self):
-        self.is_conservative = True
         self.is_pygame = False
         self.is_checked_thres = 0.5
 
@@ -162,19 +161,19 @@ class PIERas():
         self.is_checked = not self.is_checked
 
     def saveLog(self, int_method):
-        if self.log[-1][4] is None:
-            self.log[-1][2] = int_method
-            self.log[-1][3] += 1
-            self.log[-1][4] = self.frame_count - self.start_time
-            self.log[-1][5] = time.time()
-            self.log[-1][6] = self.frame_count - self.start_time
-            self.log[-1][7] = time.time()
-            self.log[-1][8] = self.is_checked
+        if self.log[-1][5] is None:
+            self.log[-1][3] = int_method
+            self.log[-1][4] += 1
+            self.log[-1][5] = self.frame_count - self.start_time
+            self.log[-1][6] = time.time()
+            self.log[-1][7] = self.frame_count - self.start_time
+            self.log[-1][8] = time.time()
+            self.log[-1][9] = self.is_checked
         else:
-            self.log[-1][3] += 1
-            self.log[-1][6] = self.frame_count - self.start_time
-            self.log[-1][7] = time.time()
-            self.log[-1][8] = self.is_checked
+            self.log[-1][4] += 1
+            self.log[-1][7] = self.frame_count - self.start_time
+            self.log[-1][8] = time.time()
+            self.log[-1][9] = self.is_checked
 
     def renderInfo(self, frame, database, obj_anchor, frame_count):
         """add information to the image
@@ -392,13 +391,14 @@ class PIERas():
         self.start_time = time.time()
         print(database.get("id"), database.get("results"), database.get("prob"))
 
-        if not self.is_conservative and database.get("results") < self.is_checked_thres:
+        if database.get("results") < self.is_checked_thres:
             self.is_checked = True
         else:
             self.is_checked = False
         self.log.append([
             database.get("id"), # id
-            self.is_conservative, # is_conservative
+            database.get("int_length"),
+            self.is_checked_thres, # is_conservative
             None, # int_method
             0, # int_count
             None, # first_int_frame
@@ -463,7 +463,7 @@ class PIERas():
 
         with open(self.log_file, 'a') as f:
             writer = csv.writer(f)
-            writer.writerow(['id', "is_conservative", 'int_method', "int_count", "first_int_frame", "first_int_time", "last_int_frame", "last_int_time", "last_state"])
+            writer.writerow(['id', "int_thresh", "int_length", 'int_method', "int_count", "first_int_frame", "first_int_time", "last_int_frame", "last_int_time", "last_state"])
             writer.writerows(self.log)
 
 if __name__ == "__main__":
