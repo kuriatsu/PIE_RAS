@@ -25,6 +25,7 @@ class PIERas():
         self.hmi_res = {"x": 1920, "y": 1080}
         self.touch_area_rate = 2.0
         self.frame_count = 0
+        self.start_time = 0
 
         self.hmi_anchor = None
         self.target_anchor = None
@@ -164,14 +165,14 @@ class PIERas():
         if self.log[-1][4] is None:
             self.log[-1][2] = int_method
             self.log[-1][3] += 1
-            self.log[-1][4] = self.frame_count
+            self.log[-1][4] = self.frame_count - self.start_time
             self.log[-1][5] = time.time()
-            self.log[-1][6] = self.frame_count
+            self.log[-1][6] = self.frame_count - self.start_time
             self.log[-1][7] = time.time()
             self.log[-1][8] = self.is_checked
         else:
             self.log[-1][3] += 1
-            self.log[-1][6] = self.frame_count
+            self.log[-1][6] = self.frame_count - self.start_time
             self.log[-1][7] = time.time()
             self.log[-1][8] = self.is_checked
 
@@ -388,6 +389,7 @@ class PIERas():
         video.set(cv2.CAP_PROP_POS_FRAMES, database.get("start_frame"))
         ret, frame = video.read()
         self.frame_count = 0
+        self.start_time = time.time()
         print(database.get("id"), database.get("results"), database.get("prob"))
 
         if not self.is_conservative and database.get("results") < self.is_checked_thres:
