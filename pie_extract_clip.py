@@ -130,7 +130,8 @@ def process(database, video_name):
     image_offset_y = 0.2
     crop_rate =  0.6
     expand_rate = 1.0 / crop_rate
-    int_length_list = [3.0, 5.0, 7.0 ,9.0, 12.0]
+    max_after_length = 2*30 # second x frame_rate
+    int_length_list = [1,0, 3.0, 5.0, 7.0 ,9.0, 12.0]
     annt_attribute_root = getXmlRoot("{}/annotations_attributes/{}_attributes.xml".format(base_dir, video_name))
     annt_root = getXmlRoot("{}/annotations/{}_annt.xml".format(base_dir, video_name))
     ego_vehicle_root = getXmlRoot("{}/annotations_vehicle/{}_obd.xml".format(base_dir, video_name))
@@ -170,7 +171,7 @@ def process(database, video_name):
                     "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
                     "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
                     "critical_point" : int(ped_attrib.get("critical_point")),
-                    "crossing_point" : min(int(ped_attrib.get("crossing_point")), int(ped_attrib.get("critical_point"))+150),
+                    "crossing_point" : min(int(ped_attrib.get("crossing_point")), int(ped_attrib.get("critical_point"))+max_after_length),
                     "start_frame" : start_frame
                 }
 
@@ -203,7 +204,7 @@ def process(database, video_name):
                     "anchor" : getAnchor(track, start_frame, end_frame, crop_value, crop_rate),
                     "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
                     "critical_point" : float(ped_attrib.get("critical_point")),
-                    "crossing_point" : min(int(ped_attrib.get("crossing_point")), int(ped_attrib.get("critical_point"))+150),
+                    "crossing_point" : min(int(ped_attrib.get("crossing_point")), int(ped_attrib.get("critical_point"))+max_after_length),
                     "start_frame" : start_frame
                 }
 

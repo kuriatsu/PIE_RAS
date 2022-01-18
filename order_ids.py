@@ -5,55 +5,29 @@ import pickle
 import random
 import csv
 
-with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database.pkl", 'rb') as f:
+with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_valid.pkl", 'rb') as f:
     database = pickle.load(f)
 
-tr_count = 0
-ped_count = 0
-for name in database.keys():
-    id = name.rsplit("_", 1)[0]
-    if id.endswith("tl"):
-        tr_count += 1
-    else:
-        ped_count += 1
-
-rate = ped_count / (tr_count + ped_count)
-print("ped rate : {}".format(rate))
-
+pedestrian_per_set = 15
 out_list = []
-for i in range(0, 20):
-    reserved_list = []
+reserved_list = []
+for i in range(0, 50):
     playlist = []
-    for int_length in [0.0, 1.0, 3.0, 5.0, 7.0 ,9.0]:
+    for int_length in [1.0, 3.0, 5.0, 7.0, 9.0, 12.0]:
         ped_candidate = []
-        tl_candidate = []
         for name, val in database.items():
-            if val.get("results") is None:
+            if val.get("results") is None or name.rsplit("_", 1)[0].endswith("tl"):
                 continue
             if float(name.rsplit("_", 1)[-1]) == int_length and name.rsplit("_", 1)[0] not in reserved_list:
-                if name.rsplit("_", 1)[0].endswith("tl"):
-                    tl_candidate.append(name)
-                else:
-                    ped_candidate.append(name)
+                ped_candidate.append(name)
 
-        print("ped {} num:, {}".format(int_length, len(ped_candidate)), 30*rate)
-
-        if len(ped_candidate) <= 20:
-        # if len(ped_candidate) <= 20*rate:
+        if len(ped_candidate) <= pedestrian_per_set:
             reserved_list += [id.rsplit("_", 1)[0] for id in ped_candidate]
             playlist += ped_candidate
         else:
-            list = random.choices(ped_candidate, k=int(20*rate))
+            list = random.choices(ped_candidate, k=pedestrian_per_set)
             reserved_list += [id.rsplit("_", 1)[0] for id in list]
             playlist += list
-
-        # if len(tl_candidate) <= 20*(1.0 - rate):
-        #     reserved_list += [id.rsplit("_", 1)[0] for id in tl_candidate]
-        #     playlist += tl_candidate
-        # else:
-        #     list = random.choices(tl_candidate, k=int(20*(1.0-rate)))
-        #     reserved_list += [id.rsplit("_", 1)[0] for id in list]
-        #     playlist += list
 
     print(playlist)
     out_list.append(playlist)

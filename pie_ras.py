@@ -256,13 +256,13 @@ class PIERas():
 
 
     def showProgress(self, frame, base_position, rate):
-        if rate <= 0.4:
-            color = (0, 255, 0)
-        elif 0.4 < rate <= 0.7:
-            color = (0, 255, 255)
-        else:
-            color = (0, 0, 255)
-
+        # if rate <= 0.4:
+        #     color = (0, 255, 0)
+        # elif 0.4 < rate <= 0.7:
+        #     color = (0, 255, 255)
+        # else:
+        #     color = (0, 0, 255)
+        color = (0, 255, 0) if self.is_checked else (0, 0, 255)
         # straight probress bar
         cv2.line(
             frame,
