@@ -11,7 +11,7 @@ with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_v
 pedestrian_per_set = 15
 out_list = []
 reserved_list = []
-for i in range(0, 50):
+for i in range(0, 3):
     playlist = []
     for int_length in [1.0, 3.0, 5.0, 7.0, 9.0, 12.0]:
         ped_candidate = []
@@ -33,6 +33,6 @@ for i in range(0, 50):
     out_list.append(playlist)
 
 
-with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist.csv", 'w') as f:
+with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist_takanose.csv", 'w') as f:
     writer = csv.writer(f)
     writer.writerows(out_list)

@@ -14,7 +14,7 @@ from pygame.locals import JOYBUTTONUP, JOYBUTTONDOWN
 class PIERas():
     def __init__(self):
         self.is_pygame = False
-        self.is_checked_thres = 0.5
+        self.is_checked_thres = None # 0.0=conservative, 0.5=high acc, 0.8=agressive
 
         self.log_file = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log_data.csv"
         self.hmi_image_offset_rate_y = 0.2 # rate
@@ -164,15 +164,15 @@ class PIERas():
         if self.log[-1][5] is None:
             self.log[-1][3] = int_method
             self.log[-1][4] += 1
-            self.log[-1][5] = self.frame_count - self.start_time
-            self.log[-1][6] = time.time()
-            self.log[-1][7] = self.frame_count - self.start_time
-            self.log[-1][8] = time.time()
+            self.log[-1][5] = self.frame_count
+            self.log[-1][6] = time.time() - self.start_time
+            self.log[-1][7] = self.frame_count
+            self.log[-1][8] = time.time() - self.start_time
             self.log[-1][9] = self.is_checked
         else:
             self.log[-1][4] += 1
-            self.log[-1][7] = self.frame_count - self.start_time
-            self.log[-1][8] = time.time()
+            self.log[-1][7] = self.frame_count
+            self.log[-1][8] = time.time() - self.start_time
             self.log[-1][9] = self.is_checked
 
     def renderInfo(self, frame, database, obj_anchor, frame_count):
@@ -456,6 +456,79 @@ class PIERas():
         video.release()
 
 
+    def practice(self, database):
+        video = self.getVideo(database.get("video_file"))
+        video.set(cv2.CAP_PROP_POS_FRAMES, database.get("start_frame"))
+        ret, frame = video.read()
+        self.frame_count = 0
+        self.start_time = time.time()
+        print(database.get("id"), database.get("results"), database.get("prob"))
+
+        if database.get("prob") < self.is_checked_thres:
+            self.is_checked = True
+        else:
+            self.is_checked = False
+        self.log.append([
+            database.get("id"), # id
+            database.get("int_length"),
+            self.is_checked_thres, # is_conservative
+            None, # int_method
+            0, # int_count
+            None, # first_int_frame
+            None, # first_int_time
+            None, # last_int_frame
+            None, # last_int_time
+            self.is_checked, # last_state
+            ])
+
+        while ret and database.get("crossing_point") - database.get("start_frame") > self.frame_count:
+            start = time.time()
+            if any(database.get("anchor")[self.frame_count]):
+                hmi_crop_anchor = self.getHMICropAnchor(database.get("anchor")[self.frame_count], self.video_res)
+                target_anchor = self.calcAnchor(database.get("anchor")[self.frame_count], hmi_crop_anchor, self.video_res)
+                croped_frame = self.cropResizeFrame(frame, hmi_crop_anchor, self.video_res)
+                if self.frame_count < (database.get("critical_point") - database.get("start_frame")):
+                    self.renderInfo(croped_frame, database, target_anchor, self.frame_count) # add info to the frame
+                    self.target_anchor = target_anchor
+                else:
+                    self.target_anchor = None
+
+                self.showTrajectory(croped_frame, database)
+                cv2.imshow("hmi", croped_frame) # render
+            else:
+                # show image without boundingbox
+                croped_frame = copy.deepcopy(frame)
+                self.showTrajectory(croped_frame, database)
+                cv2.imshow("hmi", croped_frame) # render
+
+            croped_frame = self.cropResizeFrame(frame, self.windshield_anchor, self.windshield_res)
+            cv2.imshow("windshield", croped_frame) # render
+
+            for e in pygame.event.get():
+                if e.type == JOYBUTTONDOWN and e.button == 23:
+                    if not self.is_pushed:
+                        self.buttonCallback(e.button)
+                    self.is_pushed = True
+                elif e.type == JOYBUTTONUP and e.button == 23:
+                    self.is_pushed = False
+
+            #  calc sleep time to keep frame rate to be same with video rate
+            sleep_time = max(int((1000 / (30) - (time.time() - start))), 1)
+            # sleep and wait quit key
+            key = cv2.waitKey(sleep_time) & 0xFF
+            # if key != 255 : print(key)
+            # if key == ord('q'):
+            #     exit(1)
+            # if key == 13 or key == ord('y') or key == ord('n'):
+            #     self.buttonCallback(key)
+                # break
+
+            ret, frame = video.read()
+            self.frame_count += 1
+
+        video.release()
+
+
     def __exit__(self, exc_type, exc_value, traceback):
         print('delete instance... type: {}, value: {}, traceback: {}'.format(exc_type, exc_value, traceback))
 
@@ -463,7 +536,7 @@ class PIERas():
 
         with open(self.log_file, 'a') as f:
             writer = csv.writer(f)
-            writer.writerow(['id', "int_thresh", "int_length", 'int_method', "int_count", "first_int_frame", "first_int_time", "last_int_frame", "last_int_time", "last_state"])
+            writer.writerow(['id', "int_length", "int_thresh", 'int_method', "int_count", "first_int_frame", "first_int_time", "last_int_frame", "last_int_time", "last_state"])
             writer.writerows(self.log)
 
 if __name__ == "__main__":
@@ -471,10 +544,11 @@ if __name__ == "__main__":
     with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_test.pkl", 'rb') as f:
         database = pickle.load(f)
 
-    ids = random.choices(list(database.keys()), k=20)
+    ids = random.choices(list(database.keys()), k=30)
     # ids = ["3_18_283tl_3.0"]
     print(ids)
     # pie_visualize = PIEVisualize()
     with PIERas() as pie_ras:
         for id in ids:
-            pie_ras.play(database.get(id))
+            pie_ras.is_checked_thres=0.5
+            pie_ras.practice(database.get(id))

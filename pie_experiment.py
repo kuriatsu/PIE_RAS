@@ -9,18 +9,22 @@ from pie_ras import PIERas
 
 def main():
     playlist = []
-    with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist1.csv", "r") as f:
+    set_num = 2
+    thres = 0.8
+    subject = "takanose"
+    with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist_{}.csv".format(subject), "r") as f:
         reader = csv.reader(f)
         playlist = [row for row in reader]
-    random.shuffle(playlist[int(sys.argv[1])])
+    random.shuffle(playlist[set_num])
 
     with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database.pkl", 'rb') as f:
         database = pickle.load(f)
 
     with PIERas() as pie_visualize:
-        for id in playlist[int(sys.argv[1])]:
+        for id in playlist[set_num]:
             try:
-                pie_visualize.log_file = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log_data_{}.csv".format(sys.argv[1])
+                pie_visualize.log_file = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log_data_{}_{}.csv".format(subject, set_num)
+                pie_visualize.is_checked_thres = thres
                 pie_visualize.play(database.get(id))
             except KeyboardInterrupt:
                 break
