@@ -10,14 +10,14 @@ from pie_ras import PIERas
 def main():
     playlist = []
     set_num = 2
-    thres = 0.8
-    subject = "takanose"
+    thres = 0.5
+    subject = "yoshikawa"
     with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist_{}.csv".format(subject), "r") as f:
         reader = csv.reader(f)
         playlist = [row for row in reader]
     random.shuffle(playlist[set_num])
 
-    with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database.pkl", 'rb') as f:
+    with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_valid.pkl", 'rb') as f:
         database = pickle.load(f)
 
     with PIERas() as pie_visualize:

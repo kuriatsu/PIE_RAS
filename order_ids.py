@@ -8,12 +8,12 @@ import csv
 with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_valid.pkl", 'rb') as f:
     database = pickle.load(f)
 
-pedestrian_per_set = 15
+pedestrian_per_set = 12
 out_list = []
 reserved_list = []
 for i in range(0, 3):
     playlist = []
-    for int_length in [1.0, 3.0, 5.0, 7.0, 9.0, 12.0]:
+    for int_length in [12.0, 9.0, 7.0, 5.0, 3.0, 1.0]:
         ped_candidate = []
         for name, val in database.items():
             if val.get("results") is None or name.rsplit("_", 1)[0].endswith("tl"):
@@ -33,6 +33,6 @@ for i in range(0, 3):
     out_list.append(playlist)
 
 
-with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist_takanose.csv", 'w') as f:
+with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist_pat.csv", 'w') as f:
     writer = csv.writer(f)
     writer.writerows(out_list)
