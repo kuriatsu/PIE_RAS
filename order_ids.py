@@ -8,7 +8,7 @@ import csv
 with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_valid.pkl", 'rb') as f:
     database = pickle.load(f)
 
-pedestrian_per_set = 15
+pedestrian_per_set = 10
 out_list = []
 reserved_list = []
 for i in range(0, 3):
