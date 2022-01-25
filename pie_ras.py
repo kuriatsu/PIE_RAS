@@ -463,7 +463,7 @@ class PIERas():
         ret, frame = video.read()
         self.frame_count = 0
         self.start_time = time.time()
-        print(database.get("id"), database.get("results"), database.get("prob"))
+        print("id:{}, prediction:{}, GT:{}, time:{}".format(database.get("id"), database.get("results"), database.get("prob"), database.get("int_length")))
 
         if database.get("prob") < self.is_checked_thres:
             self.is_checked = True
@@ -514,7 +514,7 @@ class PIERas():
                     self.is_pushed = False
 
             #  calc sleep time to keep frame rate to be same with video rate
-            sleep_time = max(int((1000 / (30) - (time.time() - start))), 1)
+            sleep_time = max(int((1000 / (30+9) - (time.time() - start))), 1)
             # sleep and wait quit key
             key = cv2.waitKey(sleep_time) & 0xFF
             # if key != 255 : print(key)
@@ -545,7 +545,7 @@ if __name__ == "__main__":
     with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_test.pkl", 'rb') as f:
         database = pickle.load(f)
 
-    ids = random.choices(list(database.keys()), k=60)
+    ids = random.choices(list(database.keys()), k=100)
     # ids = ["3_18_283tl_3.0"]
     print(ids)
     # pie_visualize = PIEVisualize()
