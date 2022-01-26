@@ -542,11 +542,12 @@ class PIERas():
 
 if __name__ == "__main__":
 
-    with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_test.pkl", 'rb') as f:
+    # with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_test.pkl", 'rb') as f:
+    with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_valid.pkl", 'rb') as f:
         database = pickle.load(f)
 
-    ids = random.choices(list(database.keys()), k=100)
-    # ids = ["3_18_283tl_3.0"]
+    # ids = random.choices(list(database.keys()), k=100)
+    ids = ["3_9_582_12.0"]
     print(ids)
     # pie_visualize = PIEVisualize()
     with PIERas() as pie_ras:
