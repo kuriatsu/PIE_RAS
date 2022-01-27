@@ -33,6 +33,6 @@ for i in range(0, 3):
     out_list.append(playlist)
 
 
-with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist_nakahara.csv", 'w') as f:
+with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist_nobata.csv", 'w') as f:
     writer = csv.writer(f)
     writer.writerows(out_list)

@@ -342,7 +342,7 @@ with Manager() as manager:
     p.join()
     print(dict(database).keys())
 
-    with open("{}/extracted_data/database_result_valid.pkl".format(base_dir), "wb") as f:
+    with open("{}/extracted_data/database_result_valid_cross.pkl".format(base_dir), "wb") as f:
         pickle.dump(dict(database), f)
 
 

@@ -44,7 +44,7 @@ extracted_data = pd.DataFrame(columns=[
                                 "int_count",
                                 "annt_prob",
                                 "prediction_prob",
-                                "last_intention", # True=cross False=no_cross
+                                "last_intention", # False=cross True=no_cross
                                 "crossing",
                                 "result_acc", # 0=hit, 1=miss, 2=FA, 3=CR
                                 "result_intention",
@@ -68,17 +68,18 @@ for i, row in log_data.iterrows():
 
     buf = pd.Series([
         row.subject,
-        row.trial,
+        int(row.trial),
         row.id,
-        row.int_thresh,
-        row.int_length,
-        row.first_int_time,
-        row.last_int_time,
-        row.int_count,
-        database_valid.get(data_id).get("prob"),
-        database_valid.get(data_id).get("results"),
+        float(row.int_thresh),
+        float(row.int_length),
+        float(row.first_int_time),
+        float(row.last_int_time),
+        int(row.int_count),
+        float(database_valid.get(data_id).get("prob")),
+        float(database_valid.get(data_id).get("results")),
         row.last_state,
         None, # database_valid.get(data_id).get("crossing"),
+        None,
         None,
         ], index=extracted_data.columns)
 
@@ -90,46 +91,49 @@ for i, row in log_data.iterrows():
     #     buf["prediction_prob"] = database_valid.get(data_id).get("results")
     #     buf["crossing"] = database_valid.get(data_id).get("crossing")
 
-    result_acc = None
     if buf.prediction_prob > buf.recognition_thresh and buf.annt_prob > 0.5:
-        if buf.last_intention:
-            result_acc = 3
+        if not buf.last_intention:
+            buf.result_acc = 3
         else:
-            result_acc = 2
+            buf.result_acc = 2
 
     elif buf.prediction_prob <= buf.recognition_thresh and buf.annt_prob <= 0.5:
-        if not buf.last_intention:
-            result_acc = 3
+        if buf.last_intention:
+            buf.result_acc = 3
         else:
-            result_acc = 2
+            buf.result_acc = 2
 
     elif buf.prediction_prob > buf.recognition_thresh and buf.annt_prob <= 0.5:
-        if not buf.last_intention:
-            result_acc = 0
+        if buf.last_intention:
+            buf.result_acc = 0
         else:
-            result_acc = 1
+            buf.result_acc = 1
 
     elif buf.prediction_prob <= buf.recognition_thresh and buf.annt_prob > 0.5:
-        if buf.last_intention:
-            result_acc = 0
-        else:
-            result_acc = 1
-
-    result_intention = None
-    if buf.prediction_prob > buf.recognition_thresh and buf.annt_prob <= 0.5:
         if not buf.last_intention:
-            result_acc = 0
+            buf.result_acc = 0
         else:
-            result_acc = 1
+            buf.result_acc = 1
 
-    elif buf.prediction_prob <= buf.recognition_thresh and buf.annt_prob > 0.5:
+    if buf.annt_prob <= 0.5:
         if buf.last_intention:
-            result_acc = 0
+            buf.result_intention = 3
         else:
-            result_acc = 1
+            buf.result_intention = 2
+
+    elif  buf.annt_prob > 0.5:
+        if not buf.last_intention:
+            buf.result_intention = 0
+        else:
+            buf.result_intention = 1
 
     extracted_data = extracted_data.append(buf, ignore_index=True)
 
-for i, row in extracted_data.iterrows():
-    if row.prediction_prob is None or row.prediction_prob is None:
-        print(row)
+
+length_acc = pd.DataFrame(columns=[1.0, 3.0, 5.0, 7.0, 9.0, 12.0])
+for length in length_acc.columns:
+    index = float(length)
+    target = extracted_data[extracted_data.length==index]
+    length_acc.loc["intervention_total", index] = len(target[((target.result_acc == 0)|(target.result_acc == 3))]) / len(target)
+    length_acc.loc["prediction", index] = len(target[((target.prediction_prob > 0.5) & (target.annt_prob > 0.5)) | ((target.prediction_prob <= 0.5) & (target.annt_prob <= 0.5))]) / len(target)
+    length_acc.loc["total", index] = len(target[((target.last_intention==True) & (target.annt_prob<=0.5)) | ((target.last_intention==False) & (target.annt_prob>0.5))]) / len(target)
