@@ -42,21 +42,26 @@ extracted_data = pd.DataFrame(columns=[
                                 "first_int_time",
                                 "last_int_time",
                                 "int_count",
-                                "intention_prob",
+                                "annt_prob",
                                 "prediction_prob",
-                                "last_crossing_intention",
-                                "int_result",
-                                "crossed"
+                                "last_intention", # True=cross False=no_cross
+                                "crossing",
+                                "result_acc", # 0=hit, 1=miss, 2=FA, 3=CR
+                                "result_intention",
                                 ])
 
 for i, row in log_data.iterrows():
 
+    # avoid nan values
     if type(row.id) is not str and math.isnan(row.id):
         continue
 
+    # create id from ped_id + int_length
     data_id = row.id+"_"+str(row.int_length)
     if not data_id.endswith(".0"):
         data_id = data_id+".0"
+
+    # no id in database
     if data_id not in database_valid.keys() and data_id not in database.keys():
         print(f"{data_id} not found in {row.subject}, {row.trial}")
         continue
@@ -70,10 +75,10 @@ for i, row in log_data.iterrows():
         row.first_int_time,
         row.last_int_time,
         row.int_count,
-        None,
-        None,
-        "cross" if row.last_state else "no_cross",
-        None,
+        database_valid.get(data_id).get("prob"),
+        database_valid.get(data_id).get("results"),
+        row.last_state,
+        None, # database_valid.get(data_id).get("crossing"),
         None,
         ], index=extracted_data.columns)
 
@@ -81,11 +86,49 @@ for i, row in log_data.iterrows():
     #     buf["intention_prob"] = database.get(data_id).get("prob")
     #     buf["prediction_res"] = database.get(data_id).get("results")
     # else:
-    buf["intention_prob"]= database_valid.get(data_id).get("prob")
-    buf["prediction_prob"] = database_valid.get(data_id).get("results")
+    #     buf["intention_prob"]= database_valid.get(data_id).get("prob")
+    #     buf["prediction_prob"] = database_valid.get(data_id).get("results")
+    #     buf["crossing"] = database_valid.get(data_id).get("crossing")
+
+    result_acc = None
+    if buf.prediction_prob > buf.recognition_thresh and buf.annt_prob > 0.5:
+        if buf.last_intention:
+            result_acc = 3
+        else:
+            result_acc = 2
+
+    elif buf.prediction_prob <= buf.recognition_thresh and buf.annt_prob <= 0.5:
+        if not buf.last_intention:
+            result_acc = 3
+        else:
+            result_acc = 2
+
+    elif buf.prediction_prob > buf.recognition_thresh and buf.annt_prob <= 0.5:
+        if not buf.last_intention:
+            result_acc = 0
+        else:
+            result_acc = 1
+
+    elif buf.prediction_prob <= buf.recognition_thresh and buf.annt_prob > 0.5:
+        if buf.last_intention:
+            result_acc = 0
+        else:
+            result_acc = 1
+
+    result_intention = None
+    if buf.prediction_prob > buf.recognition_thresh and buf.annt_prob <= 0.5:
+        if not buf.last_intention:
+            result_acc = 0
+        else:
+            result_acc = 1
+
+    elif buf.prediction_prob <= buf.recognition_thresh and buf.annt_prob > 0.5:
+        if buf.last_intention:
+            result_acc = 0
+        else:
+            result_acc = 1
 
     extracted_data = extracted_data.append(buf, ignore_index=True)
-
 
 for i, row in extracted_data.iterrows():
     if row.prediction_prob is None or row.prediction_prob is None:

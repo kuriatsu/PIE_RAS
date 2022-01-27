@@ -172,7 +172,8 @@ def process(database, video_name):
                     "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
                     "critical_point" : int(ped_attrib.get("critical_point")),
                     "crossing_point" : min(int(ped_attrib.get("crossing_point")), int(ped_attrib.get("critical_point"))+max_after_length),
-                    "start_frame" : start_frame
+                    "start_frame" : start_frame,
+                    "crossing" : ped_attrib.get("crossing"),
                 }
 
                 database[name] = video_database
@@ -205,7 +206,8 @@ def process(database, video_name):
                     "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
                     "critical_point" : float(ped_attrib.get("critical_point")),
                     "crossing_point" : min(int(ped_attrib.get("crossing_point")), int(ped_attrib.get("critical_point"))+max_after_length),
-                    "start_frame" : start_frame
+                    "start_frame" : start_frame,
+                    "crossing" : ped_attrib.get("crossing"),
                 }
 
                 database[name] = video_database
