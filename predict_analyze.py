@@ -8,20 +8,20 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import pandas as pd
+import math
 
 def getXmlRoot(filename):
     tree = ET.parse(filename)
     return tree.getroot()
 
-
 result_file_list = [
     # "/home/kuriatsu/Documents/data/pie_predict/val/result_0-150.pkl",
     # "/home/kuriatsu/Documents/data/pie_predict/val/result_151-243.pkl",
-    "/home/kuriatsu/Documents/data/pie_predict/test/result_0-150.pkl",
-    "/home/kuriatsu/Documents/data/pie_predict/test/result_151-300.pkl",
-    "/home/kuriatsu/Documents/data/pie_predict/test/result_301-450.pkl",
-    "/home/kuriatsu/Documents/data/pie_predict/test/result_451-600.pkl",
-    "/home/kuriatsu/Documents/data/pie_predict/test/result_601-719.pkl",
+    "/home/kuriatsu/Documents/experiment/pie/pie_predict/test/result_0-150.pkl",
+    "/home/kuriatsu/Documents/experiment/pie/pie_predict/test/result_151-300.pkl",
+    "/home/kuriatsu/Documents/experiment/pie/pie_predict/test/result_301-450.pkl",
+    "/home/kuriatsu/Documents/experiment/pie/pie_predict/test/result_451-600.pkl",
+    "/home/kuriatsu/Documents/experiment/pie/pie_predict/test/result_601-719.pkl",
     ]
 video_list = [
     # "set05/video_0001",
@@ -76,8 +76,8 @@ annotation_len_list = []
 exp_len_list = []
 annotation_len_list_tl = []
 for video in video_list:
-    annt = getXmlRoot("/home/kuriatsu/Documents/data/annotations/{}_annt.xml".format(video))
-    attrib = getXmlRoot("/home/kuriatsu/Documents/data/annotations_attributes/{}_attributes.xml".format(video))
+    annt = getXmlRoot("/home/kuriatsu/Documents/experiment/pie/annotations/{}_annt.xml".format(video))
+    attrib = getXmlRoot("/home/kuriatsu/Documents/experiment/pie/annotations_attributes/{}_attributes.xml".format(video))
 
     for track in annt.iter("track"):
         if track.attrib.get("label") == "pedestrian":
@@ -131,3 +131,21 @@ sns.lineplot(x=fp_list.keys(), y=fp_list.values(), color="tomato", label="false-
 sns.lineplot(x=fn_list.keys(), y=fn_list.values(), color="steelblue", label="false-negative", ax=axes)
 plt.legend()
 plt.show()
+
+tp = 0
+tn = 0
+fp = 0
+fn = 0
+thres = 0.5
+false = 0
+true = 0
+for index, result in result_dict.iterrows():
+    if (result["prob"] > thres and result["result"] < thres) or (result["prob"] < thres and result["result"] > thres):
+        false += 1
+    else:
+        true += 1
+    # tn+=(result["prob"] < thres and result["result"] < thres)
+    # tp+=(result["prob"] >= thres and result["result"] >= thres)
+
+print(tp, tn, fp, fn)
+true/(true+false)
