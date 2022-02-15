@@ -14,7 +14,8 @@ import seaborn as sns
 
 # get data
 log_data = None
-data_path = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log"
+data_path = "/home/kuriatsu/Documents/experiment/pie_202201"
+# data_path = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log"
 for file in glob.glob(os.path.join(data_path, "log*.csv")):
     buf = pd.read_csv(file)
     filename =file.split("/")[-1]
@@ -29,29 +30,31 @@ for file in glob.glob(os.path.join(data_path, "log*.csv")):
     else:
         log_data = log_data.append(buf, ignore_index=True)
 
-with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_valid_cross.pkl", "rb") as f:
+with open("/home/kuriatsu/Documents/experiment/pie_202201/database_result_valid_cross.pkl", "rb") as f:
+# with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_valid_cross.pkl", "rb") as f:
     database_valid = pickle.load(f)
 
-# with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database.pkl", "rb") as f:
-#     database = pickle.load(f)
-
 extracted_data = pd.DataFrame(columns=[
-                                "subject",
-                                "trial",
-                                "id",
-                                "recognition_thresh", # 0.0, 0.5, 0.8 thresh of recognition system
-                                "length",             # time limit for intervention
-                                "first_int_time",
-                                "last_int_time",
-                                "int_count",
-                                "annt_prob",
-                                "prediction_prob",
-                                "last_intention", # False=cross True=no_cross
-                                "crossing",
-                                "int_acc_prediction", # 0=hit, 1=miss, 2=FA, 3=CR
-                                "int_acc_prob",
-                                "prediction_acc",
-                                ])
+    "subject",
+    "trial",
+    "id",
+    "recognition_thresh", # 0.0, 0.5, 0.8 thresh of recognition system
+    "length",             # time limit for intervention
+    "first_int_time",
+    "last_int_time",
+    "int_count",
+    "annt_prob",
+    "prediction_prob", # likelihood when reqesting intervention
+    "last_intention", # False=cross True=no_cross
+    "crossing", # pedestrian will cross the road or not
+    "response_int_vs_pred", # 0=hit, 1=miss, 2=FA, 3=CR detect wrong recognition, NOISE=correct recognition
+    "responce_int_vs_prob", # detect cross pedestrian, NOISE=non-cross pedestrian
+    "responce_pred", # detect cross pedestrian, NOISE=non-cross pedestrian
+    "acc_int", # False=wrong True=Correct
+    "acc_pred",
+    "acc_int_cross",
+    "acc_pred_cross",
+    ])
 
 for i, row in log_data.iterrows():
 
@@ -86,6 +89,10 @@ for i, row in log_data.iterrows():
         None,
         None,
         None,
+        None,
+        None,
+        None,
+        None,
         ], index=extracted_data.columns)
     # print(database_valid.get(data_id).get("crossing"))
     # if row.subject in ["tyamamoto", "takanose"]:
@@ -98,52 +105,67 @@ for i, row in log_data.iterrows():
 
     if buf.prediction_prob > buf.recognition_thresh and buf.annt_prob > 0.5:
         if not buf.last_intention:
-            buf.int_acc_prediction = 3
+            buf.response_int_vs_pred = 3
         else:
-            buf.int_acc_prediction = 2
+            buf.response_int_vs_pred = 2
 
     elif buf.prediction_prob <= buf.recognition_thresh and buf.annt_prob <= 0.5:
         if buf.last_intention:
-            buf.int_acc_prediction = 3
+            buf.response_int_vs_pred = 3
         else:
-            buf.int_acc_prediction = 2
+            buf.response_int_vs_pred = 2
 
     elif buf.prediction_prob > buf.recognition_thresh and buf.annt_prob <= 0.5:
         if buf.last_intention:
-            buf.int_acc_prediction = 0
+            buf.response_int_vs_pred = 0
         else:
-            buf.int_acc_prediction = 1
+            buf.response_int_vs_pred = 1
 
     elif buf.prediction_prob <= buf.recognition_thresh and buf.annt_prob > 0.5:
         if not buf.last_intention:
-            buf.int_acc_prediction = 0
+            buf.response_int_vs_pred = 0
         else:
-            buf.int_acc_prediction = 1
+            buf.response_int_vs_pred = 1
 
     if buf.annt_prob <= 0.5:
         if buf.last_intention:
-            buf.int_acc_prob = 3
+            buf.acc_int = 1
+            buf.responce_int_vs_prob = 3
         else:
-            buf.int_acc_prob = 2
+            buf.acc_int = 0
+            buf.responce_int_vs_prob = 2
 
     elif  buf.annt_prob > 0.5:
         if not buf.last_intention:
-            buf.int_acc_prob = 0
+            buf.acc_int = 1
+            buf.responce_int_vs_prob = 0
         else:
-            buf.int_acc_prob = 1
+            buf.acc_int = 0
+            buf.responce_int_vs_prob = 1
 
     if buf.annt_prob <= 0.5:
         if buf.prediction_prob <= buf.recognition_thresh:
-            buf.prediction_acc = 3
+            buf.acc_pred = 1
+            buf.responce_pred = 3
         else:
-            buf.prediction_acc = 2
+            buf.acc_pred = 0
+            buf.responce_pred = 2
 
     elif  buf.annt_prob > 0.5:
         if buf.prediction_prob > buf.recognition_thresh:
-            buf.prediction_acc = 0
+            buf.acc_pred = 1
+            buf.responce_pred = 0
         else:
-            buf.prediction_acc = 1
+            buf.acc_pred = 0
+            buf.responce_pred = 1
+
+    if buf.crossing in [0, -1]:
+        buf.acc_pred_cross = (buf.prediction_prob <= buf.recognition_thresh)
+        buf.acc_int_cross = (buf.last_intention == True)
+    else:
+        buf.acc_pred_cross = (buf.prediction_prob > buf.recognition_thresh)
+        buf.acc_int_cross = (buf.last_intention == False)
 
     extracted_data = extracted_data.append(buf, ignore_index=True)
 
-extracted_data.to_csv(data_path+"/summary2.csv")
+extracted_data.to_csv(data_path+"/summary.csv")
