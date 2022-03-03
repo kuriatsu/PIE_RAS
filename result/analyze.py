@@ -8,10 +8,27 @@ import math
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+import csv
 sns.set(context='paper', style='whitegrid')
 
-database = pd.read_csv("/home/kuriatsu/Documents/experiment/pie_202201/summary.csv")
-# database = pd.read_csv("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log/summary.csv")
+# database = pd.read_csv("/home/kuriatsu/Documents/experiment/pie_202201/summary.csv")
+database = pd.read_csv("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log/summary.csv")
+
+
+###############################################################################################
+print("extract mistaken target list")
+###############################################################################################
+buf = []
+for index, row in database[(database.response_int_vs_pred==1)&(database.recognition_thresh==0.8)].iterrows():
+# for index, row in database[(database.responce_int_vs_prob==1)&(database.recognition_thresh==0.0)].iterrows():
+    id = "{}_{}".format(row.id,row.length)
+    buf = buf + [id]
+with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist/mistake_playlilst.csv", "w") as f:
+    writer = csv.writer(f)
+    writer.writerow(buf)
+
+
+
 
 ###############################################################################################
 print("responce vs prob count plot x=[0, 1, 2, 3] y=count")

@@ -14,8 +14,8 @@ import seaborn as sns
 
 # get data
 log_data = None
-data_path = "/home/kuriatsu/Documents/experiment/pie_202201"
-# data_path = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log"
+# data_path = "/home/kuriatsu/Documents/experiment/pie_202201"
+data_path = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log"
 for file in glob.glob(os.path.join(data_path, "log*.csv")):
     buf = pd.read_csv(file)
     filename =file.split("/")[-1]
@@ -30,8 +30,8 @@ for file in glob.glob(os.path.join(data_path, "log*.csv")):
     else:
         log_data = log_data.append(buf, ignore_index=True)
 
-with open("/home/kuriatsu/Documents/experiment/pie_202201/database_result_valid_cross.pkl", "rb") as f:
-# with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_valid_cross.pkl", "rb") as f:
+# with open("/home/kuriatsu/Documents/experiment/pie_202201/database_result_valid_cross.pkl", "rb") as f:
+with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_valid_cross.pkl", "rb") as f:
     database_valid = pickle.load(f)
 
 extracted_data = pd.DataFrame(columns=[
