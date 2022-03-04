@@ -42,16 +42,19 @@ def draw_data_on_roc(data, ax):
         # db[subject] = buf
 
 
-database = pd.read_csv("/home/kuriatsu/Documents/experiment/pie_202201/summary.csv")
+data = pd.read_csv("/home/kuriatsu/Documents/experiment/pie_202201/summary.csv")
 fig, ax = plt.subplots()
 ax = draw_roc(ax)
 
 db_d_C = {} # {subject: [d,C]}
 for subject in data.subject.drop_duplicates():
-    target_data = data[data.subject == subject]
-    hit = len(target_data[target_data.acc_pred==0])/len(target_data)
-    FA = len(target_data[target_data.acc_pred==2])/len(target_data)
+    hit = []
+    FA = []
+    for thresh in data.recognition_thresh.drop_duplicates():
+        target_data = data[(data.subject == subject) & (data.recognition_thresh == thresh)]
+        hit.append(len(target_data[target_data.response_int_vs_pred==0])/len(target_data))
+        FA.append(len(target_data[target_data.response_int_vs_pred==2])/len(target_data))
     sns.lineplot(x=FA, y=hit, ax=ax, label=subject)
     db_d_C[subject] = calc_d_C(hit, FA)
 
-plt.show()    
+plt.show()

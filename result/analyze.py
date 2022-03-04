@@ -22,7 +22,7 @@ sns.countplot(x="responce_int_vs_prob", hue="length", data=database[database.rec
 sns.countplot(x="responce_int_vs_prob", hue="length", data=database[database.recognition_thresh==0.8], ax=axes[2])
 
 # acc rate calcuration
-acc_summary = pd.DataFrame(columns=["length", "thresh", "subject", "acc_int_prob", "acc_pred_prob", "acc_int_cross", "acc_pred_cross"])
+acc_summary = pd.DataFrame(columns=["subject", "length", "thresh", "int_rate", "int_cross_rate", "acc_int_prob", "acc_pred_prob", "acc_int_cross", "acc_pred_cross"])
 for subject in database.subject.drop_duplicates():
     for length in database.length.drop_duplicates():
         for thresh in database.recognition_thresh.drop_duplicates():
@@ -30,9 +30,11 @@ for subject in database.subject.drop_duplicates():
             if len(target_db) == 0:
                 continue
             buf = pd.Series([
+                subject,
                 length,
                 thresh,
-                subject,
+                len(target_db[target_db.int_count > 0])/len(target_db),
+                len(target_db[(target_db.acc_int_prob == 0)|(target_db.acc_int_prob == 2)])/len(target_db),
                 sum(target_db.acc_int)/len(target_db.acc_int),
                 sum(target_db.acc_pred)/len(target_db.acc_pred),
                 sum(target_db.acc_int_cross)/len(target_db.acc_int_cross),
@@ -132,6 +134,30 @@ handles, labels = axes.get_legend_handles_labels()
 axes.legend(handles[5::6], ["intervention rate", "accuracy"], bbox_to_anchor=(1.0, 1.0), loc='upper left')
 plt.show()
 
+
+###############################################################################################
+print("Thresh vs int_count")
+###############################################################################################
+fig, axes = plt.subplots()
+for subject in acc_summary.subject.drop_duplicates():
+    y = []
+    for thresh in [0.0, 0.5, 0.8]:
+        target_db = acc_summary[(acc_summary.subject == subject) & (acc_summary.thresh == thresh)]
+        y.append(target_db.int_rate.mean())
+
+    sns.lineplot(x=[0.0, 0.5, 0.8], y=y, ax=axes)
+
+###############################################################################################
+print("Thresh vs cross count")
+###############################################################################################
+fig, axes = plt.subplots()
+for subject in acc_summary.subject.drop_duplicates():
+    y = []
+    for thresh in [0.0, 0.5, 0.8]:
+        target_db = acc_summary[(acc_summary.subject == subject) & (acc_summary.thresh == thresh)]
+        y.append(target_db.int_cross_rate.mean())
+
+    sns.lineplot(x=[0.0, 0.5, 0.8], y=y, ax=axes)
 
 
 ###############################################################################################
