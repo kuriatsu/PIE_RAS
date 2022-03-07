@@ -485,5 +485,6 @@ if __name__ == "__main__":
             print(id.rsplit("_", 1)[0])
             if id.rsplit("_", 1)[0].endswith("tl"):
                 continue
-            pie_ras.is_checked_thres=0.8
-            pie_ras.play(database.get(id), "results")
+            pie_ras.is_checked_thres=0.5
+            pie_ras.play(database.get(id), "result")
+            # pie_ras.play(database.get(id), "result")
