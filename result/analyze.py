@@ -309,16 +309,37 @@ plt.show()
 
 
 ###############################################################################################
-print("individual difference")
+print("individual data")
 ###############################################################################################
-# sns.countplot(x="subject", hue="responce_int_vs_prob", data=database)
-# sns.countplot(x="subject", hue="responce_int_vs_prob", data=database[database.int_count>0])
-# sns.countplot(x="subject", hue="response_int_vs_pred", data=database)
-# sns.barplot(x="subject", y="acc_int", data=database[database.int_count>0])
-# sns.barplot(x="subject", y="acc_int", data=database)
-# sns.barplot(x="subject", y="int_count", hue="recognition_thresh",data=database)
-# sns.barplot(x="subject", y="int_count", data=database)
-# sns.barplot(x="subject", y="acc_int_cross", data=database)
+indiv_summary = pd.DataFrame(columns=["subject", "int_bin", "int_bin_00", "int_bin_05", "int_bin_08", "acc", "acc_00", "acc_05", "acc_08"])
+for subject in database.subject.drop_duplicates():
+    target_db = database[(database.subject==subject)]
+    int_bin = len(target_db[target_db.int_count>0])/(len(target_db)+0.001)
+    int_bin_00 = len(target_db[(target_db.int_count>0) & (target_db.recognition_thresh==0.0)])/(len(target_db[target_db.recognition_thresh==0.0])+0.001)
+    int_bin_05 = len(target_db[(target_db.int_count>0) & (target_db.recognition_thresh==0.5)])/(len(target_db[target_db.recognition_thresh==0.5])+0.001)
+    int_bin_08 = len(target_db[(target_db.int_count>0) & (target_db.recognition_thresh==0.8)])/(len(target_db[target_db.recognition_thresh==0.8])+0.001)
+    acc = target_db.acc_int.sum()/(len(target_db)+0.001)
+    acc_00 = target_db[target_db.recognition_thresh==0.0].acc_int.sum()/(len(target_db[target_db.recognition_thresh==0.0])+0.001)
+    acc_05 = target_db[target_db.recognition_thresh==0.5].acc_int.sum()/(len(target_db[target_db.recognition_thresh==0.5])+0.001)
+    acc_08 = target_db[target_db.recognition_thresh==0.8].acc_int.sum()/(len(target_db[target_db.recognition_thresh==0.8])+0.001)
+    buf = pd.Series([subject, int_bin,int_bin_00, int_bin_05, int_bin_08, acc, acc_00, acc_05, acc_08], index=indiv_summary.columns)
+    indiv_summary = indiv_summary.append(buf, ignore_index=True)
 
-sns.barplot(x="id", y="last_intention", data=database)
+
+
+
+###############################################################################################
+print("id difference")
+###############################################################################################
+fig, ax = plt.subplots()
+# color = {0.0:}
+for thresh in database.recognition_thresh.drop_duplicates():
+    id_summary = pd.DataFrame(columns=["id", "annt_prob", "prediction_prob", "acc", "var"])
+    for id in database.id.drop_duplicates():
+        target_db = database[(database.id==id) & (database.recognition_thresh==thresh)]
+        buf = pd.Series([id, target_db.annt_prob.mean(), target_db.prediction_prob.mean(), target_db.acc_int.sum()/len(target_db), target_db.acc_int.var()], index=id_summary.columns)
+        id_summary = id_summary.append(buf, ignore_index=True)
+
+    sns.regplot(x="annt_prob", y="acc", data=id_summary.dropna(), label=thresh, ax=ax, order=1)
+
 plt.show()
