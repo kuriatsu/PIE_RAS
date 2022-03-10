@@ -22,7 +22,7 @@ sns.countplot(x="responce_int_vs_prob", hue="length", data=database[database.rec
 sns.countplot(x="responce_int_vs_prob", hue="length", data=database[database.recognition_thresh==0.8], ax=axes[2])
 
 # acc rate calcuration
-acc_summary = pd.DataFrame(columns=["subject", "length", "thresh", "int_rate", "int_cross_rate", "acc_int_prob", "acc_pred_prob", "acc_int_cross", "acc_pred_cross"])
+acc_summary = pd.DataFrame(columns=["subject", "length", "thresh", "int_rate", "int_cross_rate", "acc_int_prob", "acc_pred_prob", "acc_int_cross", "acc_pred_cross", "first_int_time", "last_int_time", "int_count"])
 for subject in database.subject.drop_duplicates():
     for length in database.length.drop_duplicates():
         for thresh in database.recognition_thresh.drop_duplicates():
@@ -34,11 +34,14 @@ for subject in database.subject.drop_duplicates():
                 length,
                 thresh,
                 len(target_db[target_db.int_count > 0])/len(target_db),
-                len(target_db[(target_db.acc_int_prob == 0)|(target_db.acc_int_prob == 2)])/len(target_db),
+                len(target_db[(target_db.responce_int_vs_prob == 0) | (target_db.responce_int_vs_prob == 2)])/len(target_db),
                 sum(target_db.acc_int)/len(target_db.acc_int),
                 sum(target_db.acc_pred)/len(target_db.acc_pred),
                 sum(target_db.acc_int_cross)/len(target_db.acc_int_cross),
                 sum(target_db.acc_pred_cross)/len(target_db.acc_pred_cross),
+                target_db.first_int_time.mean(),
+                target_db.last_int_time.mean(),
+                target_db.int_count.mean(),
                 ], index=acc_summary.columns)
             acc_summary = acc_summary.append(buf, ignore_index=True)
 
@@ -136,7 +139,7 @@ plt.show()
 
 
 ###############################################################################################
-print("Thresh vs int_count")
+print("Thresh vs int_rate")
 ###############################################################################################
 fig, axes = plt.subplots()
 for subject in acc_summary.subject.drop_duplicates():
@@ -146,6 +149,19 @@ for subject in acc_summary.subject.drop_duplicates():
         y.append(target_db.int_rate.mean())
 
     sns.lineplot(x=[0.0, 0.5, 0.8], y=y, ax=axes)
+
+###############################################################################################
+print("Thresh vs int_count")
+###############################################################################################
+fig, axes = plt.subplots()
+for subject in acc_summary.subject.drop_duplicates():
+    y = []
+    for thresh in [0.0, 0.5, 0.8]:
+        target_db = acc_summary[(acc_summary.subject == subject) & (acc_summary.thresh == thresh)]
+        y.append(target_db.int_count.mean())
+
+    sns.lineplot(x=[0.0, 0.5, 0.8], y=y, ax=axes)
+
 
 ###############################################################################################
 print("Thresh vs cross count")
@@ -158,6 +174,32 @@ for subject in acc_summary.subject.drop_duplicates():
         y.append(target_db.int_cross_rate.mean())
 
     sns.lineplot(x=[0.0, 0.5, 0.8], y=y, ax=axes)
+
+###############################################################################################
+print("Thresh vs int_time")
+###############################################################################################
+fig, axes = plt.subplots()
+for subject in acc_summary.subject.drop_duplicates():
+    y = []
+    for thresh in [0.0, 0.5, 0.8]:
+        target_db = acc_summary[(acc_summary.subject == subject) & (acc_summary.thresh == thresh)]
+        y.append(target_db.last_int_time.mean())
+
+    sns.lineplot(x=[0.0, 0.5, 0.8], y=y, ax=axes)
+
+
+
+###############################################################################################
+print("length vs int_time")
+###############################################################################################
+fig, axes = plt.subplots()
+for subject in acc_summary.subject.drop_duplicates():
+    y = []
+    for length in [0, 1, 3, 5, 7, 9, 12]:
+        target_db = acc_summary[(acc_summary.subject == subject) & (acc_summary.length == length)]
+        y.append(target_db.first_int_time.mean())
+
+    sns.lineplot(x=[0, 1, 3, 5, 7, 9, 12], y=y, ax=axes)
 
 
 ###############################################################################################
@@ -246,4 +288,20 @@ axes.set_xlabel("Recognition Thres and Intervention Time[s]", labelpad=20)
 axes.set_ylabel("Responce Rate")
 handles, labels = axes.get_legend_handles_labels()
 axes.legend(handles[::6], ["CR", "FA", "miss", "hit"], bbox_to_anchor=(1.0, 1.0), loc='upper left')
+plt.show()
+
+
+###############################################################################################
+print("individual difference")
+###############################################################################################
+# sns.countplot(x="subject", hue="responce_int_vs_prob", data=database)
+# sns.countplot(x="subject", hue="responce_int_vs_prob", data=database[database.int_count>0])
+# sns.countplot(x="subject", hue="response_int_vs_pred", data=database)
+# sns.barplot(x="subject", y="acc_int", data=database[database.int_count>0])
+# sns.barplot(x="subject", y="acc_int", data=database)
+# sns.barplot(x="subject", y="int_count", hue="recognition_thresh",data=database)
+# sns.barplot(x="subject", y="int_count", data=database)
+# sns.barplot(x="subject", y="acc_int_cross", data=database)
+
+sns.barplot(x="id", y="last_intention", data=database)
 plt.show()
