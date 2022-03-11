@@ -11,21 +11,21 @@ import numpy as np
 import csv
 sns.set(context='paper', style='whitegrid')
 
-# database = pd.read_csv("/home/kuriatsu/Documents/experiment/pie_202201/summary.csv")
-database = pd.read_csv("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log/summary.csv")
+database = pd.read_csv("/home/kuriatsu/Documents/experiment/pie_202201/summary.csv")
+# database = pd.read_csv("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log/summary.csv")
 
 
 ###############################################################################################
 print("extract mistaken target list")
 ###############################################################################################
-buf = []
-for index, row in database[(database.response_int_vs_pred==1)&(database.recognition_thresh==0.8)].iterrows():
-# for index, row in database[(database.responce_int_vs_prob==1)&(database.recognition_thresh==0.0)].iterrows():
-    id = "{}_{}".format(row.id,row.length)
-    buf = buf + [id]
-with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist/mistake_playlilst.csv", "w") as f:
-    writer = csv.writer(f)
-    writer.writerow(buf)
+# buf = []
+# for index, row in database[(database.response_int_vs_pred==1)&(database.recognition_thresh==0.8)].iterrows():
+# # for index, row in database[(database.responce_int_vs_prob==1)&(database.recognition_thresh==0.0)].iterrows():
+#     id = "{}_{}".format(row.id,row.length)
+#     buf = buf + [id]
+# with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist/mistake_playlilst.csv", "w") as f:
+#     writer = csv.writer(f)
+#     writer.writerow(buf)
 
 
 
@@ -311,21 +311,19 @@ plt.show()
 ###############################################################################################
 print("individual data")
 ###############################################################################################
-indiv_summary = pd.DataFrame(columns=["subject", "int_bin", "int_bin_00", "int_bin_05", "int_bin_08", "acc", "acc_00", "acc_05", "acc_08"])
+indiv_summary = pd.DataFrame(columns=["subject", "int_bin", "acc", "thresh", "trial"])
 for subject in database.subject.drop_duplicates():
-    target_db = database[(database.subject==subject)]
-    int_bin = len(target_db[target_db.int_count>0])/(len(target_db)+0.001)
-    int_bin_00 = len(target_db[(target_db.int_count>0) & (target_db.recognition_thresh==0.0)])/(len(target_db[target_db.recognition_thresh==0.0])+0.001)
-    int_bin_05 = len(target_db[(target_db.int_count>0) & (target_db.recognition_thresh==0.5)])/(len(target_db[target_db.recognition_thresh==0.5])+0.001)
-    int_bin_08 = len(target_db[(target_db.int_count>0) & (target_db.recognition_thresh==0.8)])/(len(target_db[target_db.recognition_thresh==0.8])+0.001)
-    acc = target_db.acc_int.sum()/(len(target_db)+0.001)
-    acc_00 = target_db[target_db.recognition_thresh==0.0].acc_int.sum()/(len(target_db[target_db.recognition_thresh==0.0])+0.001)
-    acc_05 = target_db[target_db.recognition_thresh==0.5].acc_int.sum()/(len(target_db[target_db.recognition_thresh==0.5])+0.001)
-    acc_08 = target_db[target_db.recognition_thresh==0.8].acc_int.sum()/(len(target_db[target_db.recognition_thresh==0.8])+0.001)
-    buf = pd.Series([subject, int_bin,int_bin_00, int_bin_05, int_bin_08, acc, acc_00, acc_05, acc_08], index=indiv_summary.columns)
-    indiv_summary = indiv_summary.append(buf, ignore_index=True)
+    for thresh in database.recognition_thresh.drop_duplicates():
+        target_db = database[(database.subject==subject) & (database.recognition_thresh==thresh)]
+        int_bin = np.nan if len(target_db) == 0 else len(target_db[target_db.int_count>0])/len(target_db)
+        acc     = np.nan if len(target_db) == 0 else target_db.acc_int.sum()/len(target_db)
+        buf = pd.Series([subject, int_bin, acc, thresh, target_db.trial.mean()], index=indiv_summary.columns)
+        indiv_summary = indiv_summary.append(buf, ignore_index=True)
 
-
+# sns.lineplot(x="trial", y="int_bin", hue="subject", data=indiv_summary)
+# sns.lineplot(x="trial", y="int_bin", hue="subject", data=indiv_summary)
+# sns.lineplot(x="thresh", y="acc", hue="subject", data=indiv_summary)
+# sns.lineplot(x="thresh", y="acc", hue="subject", data=indiv_summary)
 
 
 ###############################################################################################
@@ -340,6 +338,6 @@ for thresh in database.recognition_thresh.drop_duplicates():
         buf = pd.Series([id, target_db.annt_prob.mean(), target_db.prediction_prob.mean(), target_db.acc_int.sum()/len(target_db), target_db.acc_int.var()], index=id_summary.columns)
         id_summary = id_summary.append(buf, ignore_index=True)
 
-    sns.regplot(x="annt_prob", y="acc", data=id_summary.dropna(), label=thresh, ax=ax, order=1)
+    sns.regplot(x="annt_prob", y="acc", data=id_summary.dropna(), label=thresh, ax=ax)
 
 plt.show()

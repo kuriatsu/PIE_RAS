@@ -24,6 +24,8 @@ def draw_roc(ax):
 def calc_d_C(hit, FA):
     d = norm.ppf(hit) - norm.ppf(FA)
     C = -0.5 * (norm.ppf(hit) + norm.ppf(FA))
+    d = np.nan if d == np.inf else d
+    C = np.nan if C == np.inf else C
     return d, C
 
 
@@ -46,15 +48,20 @@ data = pd.read_csv("/home/kuriatsu/Documents/experiment/pie_202201/summary.csv")
 fig, ax = plt.subplots()
 ax = draw_roc(ax)
 
-db_d_C = {} # {subject: [d,C]}
+db_d_C = pd.DataFrame(columns=["subject", "d", "C", "thresh"]) # {subject: [d,C]}
 for subject in data.subject.drop_duplicates():
-    hit = []
-    FA = []
+    hit_list = []
+    FA_list = []
     for thresh in data.recognition_thresh.drop_duplicates():
         target_data = data[(data.subject == subject) & (data.recognition_thresh == thresh)]
-        hit.append(len(target_data[target_data.response_int_vs_pred==0])/len(target_data))
-        FA.append(len(target_data[target_data.response_int_vs_pred==2])/len(target_data))
-    sns.lineplot(x=FA, y=hit, ax=ax, label=subject)
-    db_d_C[subject] = calc_d_C(hit, FA)
+        hit = len(target_data[target_data.responce_int_vs_prob==0])/len(target_data)
+        FA = len(target_data[target_data.responce_int_vs_prob==2])/len(target_data)
+        hit_list.append(hit)
+        FA_list.append(FA)
+        d, C = calc_d_C(hit, FA)
+        buf = pd.DataFrame(np.array([subject, d, C, thresh]).reshape(1, -1), columns=db_d_C.columns)
+        db_d_C = pd.concat([db_d_C, buf])
+    sns.lineplot(x=FA_list, y=hit_list, ax=ax, label=subject)
+
 
 plt.show()
