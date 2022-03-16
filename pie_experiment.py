@@ -25,7 +25,7 @@ def main():
             try:
                 pie_visualize.log_file = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log_data_{}_{}.csv".format(subject, set_num)
                 pie_visualize.is_checked_thres = thres
-                pie_visualize.play(database.get(id))
+                pie_visualize.play(database.get(id), "result")
             except KeyboardInterrupt:
                 break
             except:

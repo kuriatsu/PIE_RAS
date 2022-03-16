@@ -126,6 +126,7 @@ class PIEVisualize():
             cv2.FONT_HERSHEY_SIMPLEX,
             1, (0, 255, 0), 2, cv2.LINE_AA
             )
+            
     def play(self, base_dir, video_name):
         annt_root = self.getXmlRoot("{}/annotations/{}_annt.xml".format(base_dir, video_name))
         annt_attribute_root = self.getXmlRoot("{}/annotations_attributes/{}_attributes.xml".format(base_dir, video_name))
