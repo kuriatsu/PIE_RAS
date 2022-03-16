@@ -22,6 +22,8 @@ links=(
     "https://data.nvision2.eecs.yorku.ca/PIE_dataset/PIE_clips/set03/video_0019.mp4"
 )
 
-for link in ${links[@]}; do
-    wget $link
-done
+#for link in ${links[@]}; do
+#    wget $link
+#done
+
+wget -N --recursive --no-parent -nH --cut-dirs=1 -R "index.html*" https://data.nvision2.eecs.yorku.ca/PIE_dataset/PIE_clips/ -P /media/kuriatsu/InternalHDD/PIE

@@ -10,8 +10,8 @@ from pie_ras import PIERas
 def main():
     playlist = []
     set_num = 2
-    thres = 0.5
-    subject = "nobata"
+    thres = 0.0
+    subject = "suzuki"
     with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist_{}.csv".format(subject), "r") as f:
         reader = csv.reader(f)
         playlist = [row for row in reader]
