@@ -37,7 +37,7 @@ class PIERas():
 
         self.hmi_anchor = None
         self.target_anchor = None
-        self.icon_dict = self.prepareIcon("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons")
+        self.icon_dict = self.prepareIcon("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons", self.recognition_type)
         self.is_checked = False
         self.is_pushed = False
 
@@ -80,7 +80,7 @@ class PIERas():
         return cv2.resize(frame[hmi_anchor.get("ytl"):hmi_anchor.get("ybr"), hmi_anchor.get("xtl"):hmi_anchor.get("xbr")], dsize=None, fx=expand_rate, fy=expand_rate)
 
 
-    def prepareIcon(self, dirname):
+    def prepareIcon(self, dirname, recognition_type):
         """
         file = dirname
         icon_dict = {
@@ -98,7 +98,7 @@ class PIERas():
         }
         """
         icon_dict = {
-            "trajectory":{
+            "path":{
                 "red":{
                     "right" : self.getIcon(dirname+'/right_red.png'),
                     "left"  : self.getIcon(dirname+'/left_red.png'),
@@ -111,32 +111,37 @@ class PIERas():
                     },
             },
         }
-        if recognition_type == "int":
+        if recognition_type == "tl":
             icon_dict["recognition"] = {
-                0:{
-                    "to_right": self.getIcon(dirname+'/int_cross_to_right.png'),
-                    "to_left" : self.getIcon(dirname+'/int_cross_to_left.png'),
-                },
-                1: self.getIcon(dirname+'/int_not_cross.png'),
-                -1: self.getIcon(dirname+'/int_init.png'),
+                0: self.getIcon(dirname+'/tl_green.png'),
+                1: self.getIcon(dirname+'/tl_red.png'),
+                -1: self.getIcon(dirname+'/int_tl.png'),
             }
         elif recognition_type == "int":
             icon_dict["recognition"] = {
-                0:{
-                    "to_right": self.getIcon(dirname+'/traj_red_to_right.png'),
-                    "to_left" : self.getIcon(dirname+'/traj_red_to_left.png'),
+                "to_right":{
+                    0: self.getIcon(dirname+'/int_cross_to_right.png'),
+                    1: self.getIcon(dirname+'/int_no_cross_to_right.png'),
+                    -1: self.getIcon(dirname+'/int_init_to_right.png'),
                 },
-                1:{
-                    "to_right": self.getIcon(dirname+'/traj_green_to_right.png'),
-                    "to_left" : self.getIcon(dirname+'/traj_green_to_left.png'),
-                },
-                -1: self.getIcon(dirname+'/traj_init.png'),
+                "to_left":{
+                    0: self.getIcon(dirname+'/int_cross_to_left.png'),
+                    1: self.getIcon(dirname+'/int_no_cross_to_left.png'),
+                    -1: self.getIcon(dirname+'/int_init_to_left.png'),
+                }
             }
-        elif recognition_type == "tl":
+        elif recognition_type == "trajectory":
             icon_dict["recognition"] = {
-                0: self.getIcon(dirname+'/traj_red_to_right.png')
-                1: self.getIcon(dirname+'/traj_red_to_right.png')
-                -1: self.getIcon(dirname+'/traj_red_to_right.png')
+                "to_right":{
+                    0: self.getIcon(dirname+'/traj_cross_to_right.png'),
+                    1: self.getIcon(dirname+'/traj_no_cross_to_right.png'),
+                    -1: self.getIcon(dirname+'/traj_init_to_right.png'),
+                },
+                "to_left":{
+                    0: self.getIcon(dirname+'/traj_cross_to_left.png'),
+                    1: self.getIcon(dirname+'/traj_no_cross_to_left.png'),
+                    -1: self.getIcon(dirname+'/traj_init_to_left.png'),
+                }
             }
 
         return icon_dict
@@ -200,7 +205,7 @@ class PIERas():
                 }
 
         if database.get('label') == 'pedestrian':
-            if self.recognition_type == "int"
+            if self.recognition_type == "int":
                 if self.target_state == -1:
                     icon = self.icon_dict.get("recognition").get(-1)
                 else:
@@ -209,7 +214,17 @@ class PIERas():
                     else:
                         icon = self.icon_dict.get("recognition").get(0).get("to_left")
 
-            elif self.recognition_type == "traj"
+                # position of the icon
+                icon_offset_y = 30.0
+                icon_offset_x = int((icon.get("roi")[1] - (obj_anchor.get('xbr') - obj_anchor.get('xtl'))) * 0.5)
+                icon_position = {
+                'ytl': int(obj_anchor.get('ytl') - icon.get('roi')[0] - icon_offset_y),
+                'xtl': int(obj_anchor.get('xtl') - icon_offset_x),
+                'ybr': int(obj_anchor.get('ytl') - icon_offset_y),
+                'xbr': int(obj_anchor.get('xtl') + icon.get('roi')[1] - icon_offset_x)
+                }
+
+            elif self.recognition_type == "traj":
                 if self.target_state in [1, -1]:
                     icon = self.icon_dict.get("recognition").get(self.target_state)
                 else:
@@ -218,15 +233,15 @@ class PIERas():
                     else:
                         icon = self.icon_dict.get("recognition").get(self.target_state).get("to_left")
 
-            # position of the icon
-            icon_offset_y = 30.0
-            icon_offset_x = int((icon.get("roi")[1] - (obj_anchor.get('xbr') - obj_anchor.get('xtl'))) * 0.5)
-            icon_position = {
+                # position of the icon
+                icon_offset_y = 30.0
+                icon_offset_x = int((icon.get("roi")[1] - (obj_anchor.get('xbr') - obj_anchor.get('xtl'))) * 0.5)
+                icon_position = {
                 'ytl': int(obj_anchor.get('ytl') - icon.get('roi')[0] - icon_offset_y),
                 'xtl': int(obj_anchor.get('xtl') - icon_offset_x),
                 'ybr': int(obj_anchor.get('ytl') - icon_offset_y),
                 'xbr': int(obj_anchor.get('xtl') + icon.get('roi')[1] - icon_offset_x)
-            }
+                }
 
         self.drawIcon(frame, icon, icon_position)
         cv2.rectangle(
