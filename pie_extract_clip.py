@@ -131,7 +131,7 @@ def process(database, video_name):
     crop_rate =  0.6
     expand_rate = 1.0 / crop_rate
     max_after_length = 2*30 # second x frame_rate
-    int_length_list = [1.0, 3.0, 5.0, 7.0 ,9.0, 12.0]
+    int_length_list = [1.0, 3.0, 5.0, 8.0]
     annt_attribute_root = getXmlRoot("{}/annotations_attributes/{}_attributes.xml".format(base_dir, video_name))
     annt_root = getXmlRoot("{}/annotations/{}_annt.xml".format(base_dir, video_name))
     ego_vehicle_root = getXmlRoot("{}/annotations_vehicle/{}_obd.xml".format(base_dir, video_name))
