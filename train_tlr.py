@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 
 from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D
-from keras.layers import Dropout, Flatten, Dence
+from keras.layers import Dropout, Flatten, Dense
 from keras.models import Sequential
 from keras.layers.normalization import BatchNormalization
 from keras.callbacks import ModelCheckpoint
@@ -10,7 +10,7 @@ import pickle
 
 def model():
     tlcat_model = Sequential()
-    tlcat_model.add(BatchNormalization(imput_shape=(32, 32, 3)))
+    tlcat_model.add(BatchNormalization(input_shape=(32, 32, 3)))
 
     tlcat_model.add(Conv2D(filters=16, kernel_size=3, activation="relu"))
     tlcat_model.add(MaxPooling2D(pool_size=2))
@@ -26,13 +26,13 @@ def model():
 
     tlcat_model.add(GlobalAveragePooling2D())
 
-    tlcat_model.add(Dence(3, activation="softmax"))
+    tlcat_model.add(Dense(3, activation="softmax"))
     tlcat_model.summary()
-    tlcat_model.compile(optimizer="rmsprop", loss="categorical_crossentropy", metrics="accuracy")
+    tlcat_model.compile(optimizer="rmsprop", loss="categorical_crossentropy", metrics=["accuracy"])
     return tlcat_model
 
 
-def train(x_train, y_train, x_valid, x_valid):
+def train(x_train, y_train, x_valid, y_valid):
     tlcat_model = model()
     checkpointer = ModelCheckpoint(filepath="model.weights.traffic_lights.hdf5", verbose=1, save_best_only=True)
     tlcat_model.fit(x_train, y_train, batch_size=64, epochs=20, validation_data=(x_valid, y_valid), callbacks=[checkpointer], verbose=2, shuffle=True)
@@ -60,19 +60,20 @@ def main():
         'all'  : ['set01', 'set02', 'set03',
                   'set04', 'set05', 'set06']
         }
+    with open("/home/kuriatsu/share/database.pickle", "rb") as f:
+        database = pickle.load(f)
 
-    base_dir = "/media/kuriatsu/InternalHDD/PIE"
-    for set in image_set_nums.get("train"):
-        database = pickle.load(base_dir+"/tlr/"+set+".pickle")
-        for data in database:
+    for data in database:
+        if data.get("set") in image_set_nums.get("train"):
             x_train.append(data.get("image"))
             y_train.append(data.get("state"))
-
-    for set in image_set_nums.get("val"):
-        database = pickle.load(base_dir+"/tlr/"+set+".pickle")
-        for data in database:
+        elif data.get("set") in image_set_nums.get("val"):
             x_valid.append(data.get("image"))
             y_valid.append(data.get("state"))
 
-    train(x_train, y_train, x_valid, x_valid)
+    print("len", len(y_train), len(x_train[0]), len(x_train[0][0]))
+    train(x_train, y_train, x_valid, y_valid)
     test(x_test, y_test)
+
+if __name__ == "__main__":
+    main()

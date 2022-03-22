@@ -276,16 +276,16 @@ def process(database, video_name):
                 database[name] = video_database
 
 
-base_dir = "/media/kuriatsu/SamsungKURI/PIE_data"
+base_dir = "./data/PIE_data"
 
 result_file_list = [
-    base_dir + "/extracted_data/predict/test/result_0-150.pkl",
-    base_dir + "/extracted_data/predict/test/result_150-300.pkl",
-    base_dir + "/extracted_data/predict/test/result_300-450.pkl",
-    base_dir + "/extracted_data/predict/test/result_450-600.pkl",
-    base_dir + "/extracted_data/predict/test/result_600-719.pkl",
-    # base_dir + "/extracted_data/predict/val/result_0-150.pkl",
-    # base_dir + "/extracted_data/predict/val/result_151-243.pkl",
+    base_dir + "/pie_predict/test/result_0-150.pkl",
+    base_dir + "/pie_predict/test/result_151-300.pkl",
+    base_dir + "/pie_predict/test/result_301-450.pkl",
+    base_dir + "/pie_predict/test/result_451-600.pkl",
+    base_dir + "/pie_predict/test/result_601-719.pkl",
+    # base_dir + "/pie_predict/val/result_0-150.pkl",
+    # base_dir + "/pie_predict/val/result_151-243.pkl",
     ]
 
 # load prediction result
@@ -342,7 +342,7 @@ with Manager() as manager:
     p.join()
     print(dict(database).keys())
 
-    with open("{}/extracted_data/database_result_valid_cross.pkl".format(base_dir), "wb") as f:
+    with open("{}/experiment/database.pkl".format(base_dir), "wb") as f:
         pickle.dump(dict(database), f)
 
 

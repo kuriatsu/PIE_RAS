@@ -9,14 +9,13 @@ import random
 import csv
 import copy
 import pygame
-from pygame.locals import JOYBUTTONUP, JOYBUTTONDOWN
+from pygame.locals import JOYBUTTONUP, JOYBUTTONDOWN, JOYHATMOTION
 
 class PIERas():
     def __init__(self):
-        self.is_pygame = False
 
-        self.log_file = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log_data.csv"
-        self.recognition_type = "int" # "traj", "tl"
+        self.log_file = "./data/PIE_data/experiment/log_data.csv"
+        self.recognition_type = "int" # "traj", "tl", "int"
         self.hmi_image_offset_rate_y = 0.2 # rate
         self.hmi_crop_margin = 40 # px
         self.hmi_crop_rate_max = 0.4
@@ -37,9 +36,8 @@ class PIERas():
 
         self.hmi_anchor = None
         self.target_anchor = None
-        self.icon_dict = self.prepareIcon("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/pie_icons", self.recognition_type)
-        self.is_checked = False
-        self.is_pushed = False
+        self.icon_dict = self.prepareIcon("./data/pictogram", self.recognition_type)
+        self.icon_is_right = False
 
         self.log = []
 
@@ -51,9 +49,11 @@ class PIERas():
         cv2.namedWindow("hmi", cv2.WND_PROP_FULLSCREEN)
         cv2.setWindowProperty("hmi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         cv2.moveWindow("hmi", self.windshield_res.get("x"), 0)
-        self.prepareEventHandler()
 
         pygame.init()
+        pygame.joystick.init()
+        self.joystick = pygame.joystick.Joystick(0)
+        self.joystick.init()
 
     def __enter__(self):
         return self
@@ -113,24 +113,24 @@ class PIERas():
         }
         if recognition_type == "tl":
             icon_dict["recognition"] = {
-                0: self.getIcon(dirname+'/tl_green.png'),
-                1: self.getIcon(dirname+'/tl_red.png'),
-                -1: self.getIcon(dirname+'/int_tl.png'),
+                0: self.getIcon(dirname+'/tl_red.png'),
+                1: self.getIcon(dirname+'/tl_green.png'),
+                -1: self.getIcon(dirname+'/tl_init.png'),
             }
         elif recognition_type == "int":
             icon_dict["recognition"] = {
                 "to_right":{
                     0: self.getIcon(dirname+'/int_cross_to_right.png'),
-                    1: self.getIcon(dirname+'/int_no_cross_to_right.png'),
+                    1: self.getIcon(dirname+'/int_no_cross.png'),
                     -1: self.getIcon(dirname+'/int_init_to_right.png'),
                 },
                 "to_left":{
                     0: self.getIcon(dirname+'/int_cross_to_left.png'),
-                    1: self.getIcon(dirname+'/int_no_cross_to_left.png'),
+                    1: self.getIcon(dirname+'/int_no_cross.png'),
                     -1: self.getIcon(dirname+'/int_init_to_left.png'),
                 }
             }
-        elif recognition_type == "trajectory":
+        elif recognition_type == "traj":
             icon_dict["recognition"] = {
                 "to_right":{
                     0: self.getIcon(dirname+'/traj_cross_to_right.png'),
@@ -148,8 +148,8 @@ class PIERas():
 
 
     def getIcon(self, filename):
-        img = cv2.imread(icon_file)
-        name = icon_file.split('/')[-1].split('.')[-2]
+        img = cv2.imread(filename)
+        name = filename.split('/')[-1].split('.')[-2]
         roi = img.shape[:2]
         img2grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         ret, mask = cv2.threshold(img2grey, 10, 255, cv2.THRESH_BINARY)
@@ -158,97 +158,69 @@ class PIERas():
         return  {'roi': roi, 'mask_inv': mask_inv, 'icon_fg': icon_fg}
 
 
-    def buttonCallback(self, key):
-        """callback of enter key push, target is focused object
-        """
-        if self.target_anchor is None:
-            return
-
-        if key == 20:
-            self.target_state = 1
-        elif key == 21:
-            self.target_state = 0
-
-        self.saveLog("button")
-
-
-    def saveLog(self, int_method):
-        if self.log[-1][5] is None:
-            self.log[-1][3] += 1
-            self.log[-1][4] = self.frame_count
-            self.log[-1][5] = time.time() - self.start_time
-            self.log[-1][6] = self.frame_count
-            self.log[-1][7] = time.time() - self.start_time
-            self.log[-1][8] = self.target_state
-        else:
-            self.log[-1][3] += 1
-            self.log[-1][6] = self.frame_count
-            self.log[-1][7] = time.time() - self.start_time
-            self.log[-1][8] = self.target_state
-
-
     def renderInfo(self, frame, database, obj_anchor, frame_count):
         """add information to the image
 
         """
         # icon name
         if database.get('label') == 'traffic_light':
-            icon = self.icon_dict.get("recognition").get("tl").get(self.target_state)
+            icon = self.icon_dict.get("recognition").get(self.target_state)
             # position of the icon
-            icon_offset_y = 30.0
+            icon_offset_y = 10.0
             icon_offset_x = int((icon.get("roi")[1] - (obj_anchor.get('xbr') - obj_anchor.get('xtl'))) * 0.5)
             icon_position = {
-                'ytl': int(obj_anchor.get('ytl') - icon.get('roi')[0] + icon_offset_y),
+                'ytl': int(obj_anchor.get('ybr') + icon_offset_y),
                 'xtl': int(obj_anchor.get('xtl') - icon_offset_x),
-                'ybr': int(obj_anchor.get('ytl') + icon_offset_y),
+                'ybr': int(obj_anchor.get('ybr') + icon_offset_y + icon.get('roi')[0]),
                 'xbr': int(obj_anchor.get('xtl') + icon.get('roi')[1] - icon_offset_x)
                 }
 
         if database.get('label') == 'pedestrian':
-            if self.recognition_type == "int":
-                if self.target_state == -1:
-                    icon = self.icon_dict.get("recognition").get(-1)
-                else:
-                    if obj_anchor.get('xbr') < self.video_res.get("x") * 0.5:
-                        icon = self.icon_dict.get("recognition").get(0).get("to_right")
-                    else:
-                        icon = self.icon_dict.get("recognition").get(0).get("to_left")
 
-                # position of the icon
-                icon_offset_y = 30.0
-                icon_offset_x = int((icon.get("roi")[1] - (obj_anchor.get('xbr') - obj_anchor.get('xtl'))) * 0.5)
-                icon_position = {
-                'ytl': int(obj_anchor.get('ytl') - icon.get('roi')[0] - icon_offset_y),
-                'xtl': int(obj_anchor.get('xtl') - icon_offset_x),
-                'ybr': int(obj_anchor.get('ytl') - icon_offset_y),
-                'xbr': int(obj_anchor.get('xtl') + icon.get('roi')[1] - icon_offset_x)
-                }
+            # if self.target_state == -1:
+            if obj_anchor.get('xbr') < self.video_res.get("x") * 0.5:
+                icon = self.icon_dict.get("recognition").get("to_right").get(self.target_state)
+                self.icon_is_right = False
+            else:
+                icon = self.icon_dict.get("recognition").get("to_left").get(self.target_state)
+                self.icon_is_right = True
 
-            elif self.recognition_type == "traj":
-                if self.target_state in [1, -1]:
-                    icon = self.icon_dict.get("recognition").get(self.target_state)
-                else:
-                    if obj_anchor.get('xbr') < self.video_res.get("x") * 0.5:
-                        icon = self.icon_dict.get("recognition").get(self.target_state).get("to_right")
-                    else:
-                        icon = self.icon_dict.get("recognition").get(self.target_state).get("to_left")
+            # if self.recognition_type == "int":
+            # position of the icon
+            icon_offset_y = 30.0
+            icon_offset_x = int((icon.get("roi")[1] - (obj_anchor.get('xbr') - obj_anchor.get('xtl'))) * 0.5)
+            icon_position = {
+            'ytl': int(obj_anchor.get('ytl') - icon.get('roi')[0] - icon_offset_y),
+            'xtl': int(obj_anchor.get('xtl') - icon_offset_x),
+            'ybr': int(obj_anchor.get('ytl') - icon_offset_y),
+            'xbr': int(obj_anchor.get('xtl') + icon.get('roi')[1] - icon_offset_x)
+            }
 
-                # position of the icon
-                icon_offset_y = 30.0
-                icon_offset_x = int((icon.get("roi")[1] - (obj_anchor.get('xbr') - obj_anchor.get('xtl'))) * 0.5)
-                icon_position = {
-                'ytl': int(obj_anchor.get('ytl') - icon.get('roi')[0] - icon_offset_y),
-                'xtl': int(obj_anchor.get('xtl') - icon_offset_x),
-                'ybr': int(obj_anchor.get('ytl') - icon_offset_y),
-                'xbr': int(obj_anchor.get('xtl') + icon.get('roi')[1] - icon_offset_x)
-                }
+            # elif self.recognition_type == "traj":
+            #     # position of the icon
+            #     icon_offset_y = int((icon.get("roi")[0] - (obj_anchor.get('ybr') - obj_anchor.get('ytl'))) * 0.5)
+            #     icon_offset_x = 5
+            #     if obj_anchor.get('xbr') < self.video_res.get("x") * 0.5:
+            #         icon_position = {
+            #         'ytl': int(obj_anchor.get('ytl') + icon_offset_y),
+            #         'xtl': int(obj_anchor.get('xbr') + icon_offset_x),
+            #         'ybr': int(obj_anchor.get('ytl') + icon_offset_y + icon.get('roi')[0]),
+            #         'xbr': int(obj_anchor.get('xbr') + icon_offset_x + icon.get('roi')[1]),
+            #         }
+            #     else:
+            #         icon_position = {
+            #         'ytl': int(obj_anchor.get('ytl') + icon_offset_y),
+            #         'xtl': int(obj_anchor.get('xtl') - icon_offset_x),
+            #         'ybr': int(obj_anchor.get('ytl') + icon_offset_y + icon.get('roi')[0]),
+            #         'xbr': int(obj_anchor.get('xtl') - icon_offset_x - icon.get('roi')[1]),
+            #         }
 
         self.drawIcon(frame, icon, icon_position)
         cv2.rectangle(
             frame,
             (obj_anchor.get('xtl'), obj_anchor.get('ytl')),
             (obj_anchor.get('xbr'), obj_anchor.get('ybr')),
-            (0, 255, 0) if self.is_checked else (0, 0, 255),
+            (0, 255, 0) if self.target_state == 1 else (0, 0, 255),
             2
             )
 
@@ -276,7 +248,6 @@ class PIERas():
             "ytl": int( (float(obj_anchor.get("ytl")) - hmi_anchor.get("ytl") ) * expand_rate),
             }
         return out_anchor
-
 
     def drawIcon(self, frame, icon_info, position):
         """draw icon to emphasize the target objects
@@ -323,8 +294,8 @@ class PIERas():
 
     def showTrajectory(self, frame, database):
         # future trajectory
-        arrow_color = 'green' if self.is_checked else 'red'
-        arrow_info = self.icon_dict.get(arrow_color).get(database.get('future_direction'))
+        arrow_color = 'red' if self.target_state in [-1, 0] else 'green'
+        arrow_info = self.icon_dict.get("path").get(arrow_color).get(database.get('future_direction'))
         arrow_position = {
             'ytl': int(self.hmi_res.get("y") - 250),
             'ybr': int(self.hmi_res.get("y") - 250 + arrow_info.get('roi')[0]),
@@ -409,6 +380,45 @@ class PIERas():
         return cached_surface
 
 
+    def buttonCallback(self, key):
+        """callback of enter key push, target is focused object
+        """
+        if self.target_anchor is None:
+            return
+
+        if key.value[0] == 0 and key.value[1] == 0:
+            return
+        # print(key)
+        if self.recognition_type == "tl" and key.value[0] == 0:
+            if key.value[1] == -1:
+                self.target_state = 1
+            elif key.value[1] == 1:
+                self.target_state = 0
+            self.saveLog("button")
+
+        elif self.recognition_type in ["int", "traj"] and key.value[1] == 0:
+            if key.value[0] == 1:
+                self.target_state = 1 if self.icon_is_right else 0
+            elif key.value[0] == -1:
+                self.target_state = 0 if self.icon_is_right else 1
+            self.saveLog("button")
+
+
+    def saveLog(self, int_method):
+        if self.log[-1][5] is None:
+            self.log[-1][2] += 1
+            self.log[-1][3] = self.frame_count
+            self.log[-1][4] = time.time() - self.start_time
+            self.log[-1][5] = self.frame_count
+            self.log[-1][6] = time.time() - self.start_time
+            self.log[-1][7] = self.target_state
+        else:
+            self.log[-1][2] += 1
+            self.log[-1][5] = self.frame_count
+            self.log[-1][6] = time.time() - self.start_time
+            self.log[-1][7] = self.target_state
+        print("saved")
+
     def play(self, database, intention_value):
 
         # init variables
@@ -428,6 +438,7 @@ class PIERas():
             self.target_state, # last_state cross/green:1, stop/red:0, None:-1
             ])
 
+        print(database.get("video_file"))
         video = self.getVideo(database.get("video_file"))
         video.set(cv2.CAP_PROP_POS_FRAMES, database.get("start_frame"))
         ret, frame = video.read()
@@ -456,12 +467,14 @@ class PIERas():
             cv2.imshow("windshield", croped_frame) # render
 
             for e in pygame.event.get():
-                if e.type == JOYBUTTONDOWN:
-                    if not self.is_pushed:
-                        self.buttonCallback(e.button)
-                    self.is_pushed = True
-                elif e.type == JOYBUTTONUP:
-                    self.is_pushed = False
+                if e.type == JOYHATMOTION:
+                    self.buttonCallback(e)
+                # elif e.type == KEYUP:
+                #     if not self.is_pushed:
+                #         self.buttonCallback(e.button)
+                #     self.is_pushed = True
+                # elif e.type == KEYUP:
+                #     self.is_pushed = False
 
             #  calc sleep time to keep frame rate to be same with video rate
             sleep_time = max(int((1000 / (30+9) - (time.time() - start))), 1)
@@ -487,22 +500,20 @@ class PIERas():
 if __name__ == "__main__":
 
     # with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_test.pkl", 'rb') as f:
-    with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_valid_cross.pkl", 'rb') as f:
+    with open("./data/PIE_data/experiment/database.pkl", 'rb') as f:
         database = pickle.load(f)
-    # ids = random.choices(list(database.keys()), k=100)
+    ids = random.choices(list(database.keys()), k=100)
     # ids = ["3_9_582_12.0"]
     # print(ids)
 
-    with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist/mistake_playlilst.csv", "r") as f:
-        reader = csv.reader(f)
-        for row in reader:
-            ids = row
+    # with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist/mistake_playlilst.csv", "r") as f:
+    #     reader = csv.reader(f)
+    #     for row in reader:
+    #         ids = row
 
     with PIERas() as pie_ras:
         for id in ids:
             print(id.rsplit("_", 1)[0])
             if id.rsplit("_", 1)[0].endswith("tl"):
                 continue
-            pie_ras.is_checked_thres=0.5
             pie_ras.play(database.get(id), "result")
-            # pie_ras.play(database.get(id), "result")
