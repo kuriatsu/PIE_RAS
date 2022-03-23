@@ -13,7 +13,7 @@ out_list = []
 reserved_list = []
 for i in range(0, 3):
     playlist = []
-    for int_length in [12.0, 9.0, 7.0, 5.0, 3.0, 1.0]:
+    for int_length in [8.0, 5.0, 3.0, 1.0]:
         ped_candidate = []
         for name, val in database.items():
             if val.get("results") is None or name.rsplit("_", 1)[0].endswith("tl"):
