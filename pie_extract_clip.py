@@ -102,6 +102,7 @@ def getAnchor(track, start_frame, end_frame):
 def process(database, video_name):
     max_after_length = 2*30 # second x frame_rate
     int_length_list = [1.0, 3.0, 5.0, 8.0]
+    tl_state_list = {"red":1, "green":0}
 
     annt_attribute_root = getXmlRoot("{}/annotations_attributes/{}_attributes.xml".format(base_dir, video_name))
     annt_root = getXmlRoot("{}/annotations/{}_annt.xml".format(base_dir, video_name))
@@ -119,8 +120,8 @@ def process(database, video_name):
             ped_attrib = getAnntAtrrib(annt_attribute_root, ped_id)
             max_len = (int(ped_attrib.get("critical_point")) - int(track[0].get("frame")))/30
 
-            # short video
-            if max_len < min(int_length_list):
+            # remove short video or pedestrians who cross non relevant road
+            if max_len < min(int_length_list) or ped_attrib.get("crossing") == -1:
                 continue
 
             # cut video each size
@@ -197,7 +198,7 @@ def process(database, video_name):
                     "critical_point" : int(track[-1].get('frame')),
                     "crossing_point" : int(track[-1].get('frame')),
                     "start_frame" : start_frame,
-                    "state" : getAttrib(track[-1], "attribute", "name", "state"),
+                    "state" : tl_state_list.get(getAttrib(track[-1], "attribute", "name", "state")),
                 }
 
                 database[name] = video_database
