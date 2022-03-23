@@ -108,7 +108,7 @@ def process(database, video_name):
     annt_root = getXmlRoot("{}/annotations/{}_annt.xml".format(base_dir, video_name))
     ego_vehicle_root = getXmlRoot("{}/annotations_vehicle/{}_obd.xml".format(base_dir, video_name))
     video_file = "{}/PIE_clips/{}.mp4".format(base_dir, video_name)
-    _, image_res, _, crop_value = getVideo(video_file)
+    _, image_res, _ = getVideo(video_file)
 
     for track in annt_root.iter("track"):
         if track.get("label") == "pedestrian":
@@ -121,7 +121,7 @@ def process(database, video_name):
             max_len = (int(ped_attrib.get("critical_point")) - int(track[0].get("frame")))/30
 
             # remove short video or pedestrians who cross non relevant road
-            if max_len < min(int_length_list) or ped_attrib.get("crossing") == -1:
+            if max_len < min(int_length_list) or ped_attrib.get("crossing") == "-1":
                 continue
 
             # cut video each size
@@ -167,7 +167,8 @@ def process(database, video_name):
             #         type = box.attrib.text
 
             # skip non reqular light or contraflow light
-            if type != "regular" or float(track[0].get("xtl")) < image_res[1]*0.5:
+            # if type != "regular" or float(track[0].get("xtl")) < image_res[1]*0.5:
+            if type != "regular":
                 continue
 
             max_len = (int(track[-1].get("frame")) - int(track[0].get("frame")))/30
@@ -198,7 +199,7 @@ def process(database, video_name):
                     "critical_point" : int(track[-1].get('frame')),
                     "crossing_point" : int(track[-1].get('frame')),
                     "start_frame" : start_frame,
-                    "state" : tl_state_list.get(getAttrib(track[-1], "attribute", "name", "state")),
+                    "state" : tl_state_list.get(getAtrrib(track[-1], "attribute", "name", "state")),
                 }
 
                 database[name] = video_database
@@ -208,10 +209,10 @@ base_dir = "./data/PIE_data"
 
 result_file_list = [
     base_dir + "/pie_predict/test/result_0-150.pkl",
-    base_dir + "/pie_predict/test/result_151-300.pkl",
-    base_dir + "/pie_predict/test/result_301-450.pkl",
-    base_dir + "/pie_predict/test/result_451-600.pkl",
-    base_dir + "/pie_predict/test/result_601-719.pkl",
+    base_dir + "/pie_predict/test/result_150-300.pkl",
+    base_dir + "/pie_predict/test/result_300-450.pkl",
+    base_dir + "/pie_predict/test/result_450-600.pkl",
+    base_dir + "/pie_predict/test/result_600-719.pkl",
     # base_dir + "/pie_predict/val/result_0-150.pkl",
     # base_dir + "/pie_predict/val/result_151-243.pkl",
     ]
