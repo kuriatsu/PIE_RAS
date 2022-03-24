@@ -18,7 +18,7 @@ class PIERas():
         self.recognition_type = recognition_type # "traj", "tl", "int"
         self.hmi_image_offset_rate_y = 0.2 # rate
         self.hmi_crop_margin = 40 # px
-        self.hmi_crop_rate_max = 0.4
+        self.hmi_crop_rate_max = 0.6
         self.hmi_crop_rate = 0.6
         self.hmi_res = {"x": 1920, "y": 1080}
         self.windshield_anchor = {
@@ -167,7 +167,6 @@ class PIERas():
             icon = self.icon_dict.get("recognition").get(self.target_state)
             # position of the icon
             icon_offset_y = 10.0
-            print("acnho",self.recognition_type)
             icon_offset_x = int((icon.get("roi")[1] - (obj_anchor.get('xbr') - obj_anchor.get('xtl'))) * 0.5)
             icon_position = {
                 'ytl': int(obj_anchor.get('ybr') + icon_offset_y),
@@ -176,7 +175,7 @@ class PIERas():
                 'xbr': int(obj_anchor.get('xtl') + icon.get('roi')[1] - icon_offset_x)
                 }
 
-        if database.get('label') == 'pedestrian':
+        if database.get('label') in ["int", "traj"]:
 
             # if self.target_state == -1:
             if obj_anchor.get('xbr') < self.video_res.get("x") * 0.5:
@@ -185,7 +184,6 @@ class PIERas():
             else:
                 icon = self.icon_dict.get("recognition").get("to_left").get(self.target_state)
                 self.icon_is_right = True
-
             # if self.recognition_type == "int":
             # position of the icon
             icon_offset_y = 30.0
@@ -516,9 +514,8 @@ if __name__ == "__main__":
     #     for row in reader:
     #         ids = row
 
-    with PIERas() as pie_ras:
+    with PIERas("int") as pie_ras:
         for id in ids:
-            print(id.rsplit("_", 1)[0])
-            if not id.rsplit("_", 1)[0].endswith("tl"):
-                continue
-            pie_ras.play(database.get(id), "result")
+            if id.rsplit("_", 1)[0].endswith("int"):
+                print(id.rsplit("_", 1)[0])
+                pie_ras.play(database.get(id), "result")

@@ -8,12 +8,13 @@ import random
 from pie_ras import PIERas
 
 def main():
+    subject = "kuribayashi"
+    trial = 0
+    type = "tl"
+
     playlist = []
     type_code = {"int":0, "traj":1, "tl":2}
-    trial = 2
-    type = "traj"
     set_num = 3 * trial + type_code.get(type)
-    subject = "suzuki"
     with open("./data/PIE_data/experiment/playlist.csv".format(subject), "r") as f:
         reader = csv.reader(f)
         playlist = [row for row in reader]
