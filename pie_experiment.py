@@ -8,8 +8,8 @@ import random
 from pie_ras import PIERas
 
 def main():
-    subject = "kuribayashi"
-    trial = 0
+    subject = "kato"
+    trial = 2
     type = "tl"
 
     playlist = []
@@ -26,7 +26,7 @@ def main():
     with PIERas(type) as pie_visualize:
         for id in playlist[set_num]:
             try:
-                pie_visualize.log_file = "./data/PIE_data/experiment/log_data_{}_{}.csv".format(subject, set_num)
+                pie_visualize.log_file = "./data/PIE_data/experiment/log_data_{}_{}_{}.csv".format(subject, type, set_num)
                 pie_visualize.play(database.get(id), "result")
             except KeyboardInterrupt:
                 break

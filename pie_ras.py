@@ -408,18 +408,18 @@ class PIERas():
 
 
     def saveLog(self, int_method):
-        if self.log[-1][5] is None:
-            self.log[-1][2] += 1
-            self.log[-1][3] = self.frame_count
-            self.log[-1][4] = time.time() - self.start_time
-            self.log[-1][5] = self.frame_count
-            self.log[-1][6] = time.time() - self.start_time
-            self.log[-1][7] = self.target_state
+        if self.log[-1][6] is None:
+            self.log[-1][3] += 1
+            self.log[-1][4] = self.frame_count
+            self.log[-1][5] = time.time() - self.start_time
+            self.log[-1][6] = self.frame_count
+            self.log[-1][7] = time.time() - self.start_time
+            self.log[-1][8] = self.target_state
         else:
-            self.log[-1][2] += 1
-            self.log[-1][5] = self.frame_count
-            self.log[-1][6] = time.time() - self.start_time
-            self.log[-1][7] = self.target_state
+            self.log[-1][3] += 1
+            self.log[-1][6] = self.frame_count
+            self.log[-1][7] = time.time() - self.start_time
+            self.log[-1][8] = self.target_state
         print("saved")
 
     def play(self, database, intention_value):
@@ -433,6 +433,7 @@ class PIERas():
         self.log.append([
             database.get("id"), # id
             database.get("int_length"),
+            database.get("state"),
             0, # int_count
             None, # first_int_frame
             None, # first_int_time
@@ -496,7 +497,7 @@ class PIERas():
 
         with open(self.log_file, 'a') as f:
             writer = csv.writer(f)
-            writer.writerow(['id', "int_length", "int_count", "first_int_frame", "first_int_time", "last_int_frame", "last_int_time", "last_state"])
+            writer.writerow(['id', "int_length", "state", "int_count", "first_int_frame", "first_int_time", "last_int_frame", "last_int_time", "last_state"])
             writer.writerows(self.log)
 
 
