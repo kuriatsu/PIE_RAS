@@ -430,7 +430,7 @@ class PIERas():
         self.frame_count = 0
         self.start_time = time.time()
         self.target_state = -1
-        print("id:{}, prediction:{}, GT:{}, cross:{}".format(database.get("id"), database.get("results"), database.get("prob"), database.get("crossing")))
+        print("id:{}, prediction:{}, GT:{}, cross:{}".format(database.get("id"), database.get("results"), database.get("likelihood"), database.get("state")))
         # init log
         self.log.append([
             database.get("id"), # id
@@ -448,7 +448,7 @@ class PIERas():
         video.set(cv2.CAP_PROP_POS_FRAMES, database.get("start_frame"))
         ret, frame = video.read()
 
-        while ret and database.get("crossing_point") - database.get("start_frame") > self.frame_count:
+        while ret and database.get("end_frame") - database.get("start_frame") > self.frame_count:
             start = time.time()
             if any(database.get("anchor")[self.frame_count]):
                 hmi_crop_anchor = self.getHMICropAnchor(database.get("anchor")[self.frame_count], self.video_res)

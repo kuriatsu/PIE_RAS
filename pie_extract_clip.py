@@ -78,6 +78,17 @@ def getVehicleDirection(vehicle_root, start_frame, end_frame):
             return 'left'
 
 
+def getVehicleBrakeFrame(vehicle_root, start_frame, crossing_point):
+    distance = 0
+    g = 2.0
+    sefety_mergin = 10
+    for frame in range(crossing_point, start_frame, -1):
+        speed = float(vehicle_root[frame].get("OBD_speed"))
+        distance += speed/(3.6*30)
+        stop_distance = (speed**2) / (2*g*9.8) + safety_mergin
+        if stop_distance < distance:
+            return frame
+
 def getAnchor(track, start_frame, end_frame):
     anchor_list = []
     for frame in range(start_frame, end_frame+1):
@@ -113,10 +124,6 @@ def process(database, video_name):
     for track in annt_root.iter("track"):
         if track.get("label") == "pedestrian":
             ped_id = getAtrrib(track[0], "attribute", "name", "id")
-            # for box_attrib in track[0].iter("attribute"):
-            #     if box_attrib.get("name") == "id":
-            #         ped_id = box_attrib.text
-            #         print(ped_id)
             ped_attrib = getAnntAtrrib(annt_attribute_root, ped_id)
             max_len = (int(ped_attrib.get("critical_point")) - int(track[0].get("frame")))/30
 
@@ -126,45 +133,63 @@ def process(database, video_name):
 
             # cut video each size
             for int_length in int_length_list:
+                # remove short video
                 if int_length > max_len:
                     break
-                name = "{}_{}".format(ped_id, int_length)
-                # video_name = "{}/extracted_data/{}_ped_{}_{}.mp4".format(base_dir, video_list[0], ped_id, int_length)
-                start_frame = int(int(ped_attrib.get("critical_point")) - int_length * 30)
+
+                start_frame_int = int(int(ped_attrib.get("critical_point")) - int_length * 30)
                 end_frame = int(track[-1].get("frame"))
-                if result_dict.get(ped_id).get(start_frame) is None:
+
+                # extract pie prediction result
+                if result_dict.get(ped_id).get(start_frame_int) is None:
                     prediction = result_dict.get(ped_id).get(min(result_dict.get(ped_id).keys()))
                 else:
-                    prediction = result_dict.get(ped_id).get(start_frame)
-                print("long", name, start_frame, int(ped_attrib.get("crossing_point")))
+                    prediction = result_dict.get(ped_id).get(start_frame_int)
 
                 video_database = {
                     "video_file" : video_file,
                     "id" : ped_id,
-                    "label" : "pedestrian",
+                    "label" : "int",
                     "int_length" : int_length,
-                    "prob" : float(ped_attrib.get("intention_prob")),
-                    "results" : prediction,
-                    "anchor" : getAnchor(track, start_frame, end_frame),
-                    "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
-                    "critical_point" : float(ped_attrib.get("critical_point")),
-                    "crossing_point" : min(int(ped_attrib.get("crossing_point")), int(ped_attrib.get("critical_point"))+max_after_length),
-                    "start_frame" : start_frame,
-                    "crossing" : ped_attrib.get("crossing"),
-                }
+                    "likelihood" : prediction,
+                    "anchor" : getAnchor(track, start_frame_int, end_frame),
+                    "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame_int, end_frame),
+                    "start_frame" : start_frame_int,
+                    "critical_point" :float(ped_attrib.get("critical_point")),
+                    "end_frame" :  min(int(ped_attrib.get("critical_point"))+max_after_length, end_frame),
+                    "state" : float(ped_attrib.get("intention_prob")),
+                    }
+                name = "{}int_{}".format(ped_id, int_length)
+                database[name] = video_database
 
+                traj_critical_point = None
+                if ped_attrib.get("crossing") == "1":
+                    traj_critical_point = int(ped_attrib.get("crossing_point"))
+                elif ped_attrib.get("crossing") == "0":
+                    traj_critical_point = getVehicleBrakeFrame(ego_vehicle_root, int(track[0].get("frame")), int(ped_attrib.get("crossing_point")))
+
+                start_frame_traj = int(traj_critical_point - int_length * 30)
+
+                video_database = {
+                    "video_file" : video_file,
+                    "id" : ped_id,
+                    "label" : "traj",
+                    "int_length" : int_length,
+                    "likelihood" : prediction,
+                    "anchor" : getAnchor(track, start_frame_traj, end_frame),
+                    "future_direction" :  getVehicleDirection(ego_vehicle_root, start_frame_traj, end_frame),
+                    "start_frame" :  start_frame_traj,
+                    "critical_point" : traj_critical_point,
+                    "end_frame" :  min(int(ped_attrib.get("crossing_point"))+max_after_length, end_frame),
+                    "state" :  ped_attrib.get("crossing"),
+                    }
+                name = "{}traj_{}".format(ped_id, int_length)
                 database[name] = video_database
 
 
         elif track.get("label") == "traffic_light":
             tl_id = getAtrrib(track[0], "attribute", "name", "id")
             type = getAtrrib(track[0], "attribute", "name", "type")
-
-            # for box_attrib in track[0].iter("attribute"):
-            #     if box_attrib.get("name") == "id":
-            #         tl_id = box_attrib.text
-            #     if box_attrib.get("name") == "type":
-            #         type = box.attrib.text
 
             # skip non reqular light or contraflow light
             # if type != "regular" or float(track[0].get("xtl")) < image_res[1]*0.5:
@@ -182,7 +207,6 @@ def process(database, video_name):
                 if int_length > max_len:
                     break
 
-                name = "{}_{}".format(tl_id, int_length)
                 start_frame = int(int(track[-1].get("frame")) - int_length * 30)
                 end_frame = int(track[-1].get("frame"))
                 print(name, start_frame, end_frame)
@@ -192,16 +216,16 @@ def process(database, video_name):
                     "id" : tl_id,
                     "label" : "traffic_light",
                     "int_length" : int_length,
-                    "prob" : random.random(),
-                    "results" : random.random(),
-                    "anchor" : getAnchor(track, start_frame, end_frame),
-                    "future_direction" : getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
-                    "critical_point" : int(track[-1].get('frame')),
-                    "crossing_point" : int(track[-1].get('frame')),
+                    "likelihood" : random.random(),
+                    "anchor" :  getAnchor(track, start_frame, end_frame),
+                    "future_direction" :  getVehicleDirection(ego_vehicle_root, start_frame, end_frame),
                     "start_frame" : start_frame,
+                    "critical_point" : int(track[-1].get('frame')),
+                    "end_frame" :  int(track[-1].get('frame')),
                     "state" : tl_state_list.get(getAtrrib(track[-1], "attribute", "name", "state")),
-                }
+                    }
 
+                name = "{}_{}".format(tl_id, int_length)
                 database[name] = video_database
 
 

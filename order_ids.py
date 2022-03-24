@@ -15,16 +15,25 @@ pedestrian_per_set = 10
 out_list = []
 int_length_list = [1.0, 3.0, 5.0, 8.0]
 # state: 0=nocross/green 1=cross/red, 8.0:0=avairable 1=arrocated -1=not avairable
-pd_reserve_list = pd.DataFrame(columns=["id", "state", "length", "allocate"])
+int_reserve_list = pd.DataFrame(columns=["id", "state", "length", "allocate"])
+traj_reserve_list = pd.DataFrame(columns=["id", "state", "length", "allocate"])
 tl_reserve_list = pd.DataFrame(columns=["id", "state", "length", "allocate"])
 for name, val in database.items():
-    if val.get("label") == "pedestrian":
-        if val.get("id") not in list(pd_reserve_list.id):
+    if val.get("label") == "int":
+        if val.get("id") not in list(int_reserve_list.id):
             for length in int_length_list:
-                buf = pd.DataFrame([(val.get("id"), val.get("crossing"), float(length), -1)], columns=pd_reserve_list.columns)
-                pd_reserve_list = pd.concat([pd_reserve_list, buf], ignore_index=True)
+                buf = pd.DataFrame([(val.get("id"), val.get("crossing"), float(length), -1)], columns=int_reserve_list.columns)
+                int_reserve_list = pd.concat([int_reserve_list, buf], ignore_index=True)
 
-        pd_reserve_list.loc[(pd_reserve_list.id == val.get("id")) & (pd_reserve_list.length == val.get("int_length")),"allocate"] = 0
+        int_reserve_list.loc[(int_reserve_list.id == val.get("id")) & (int_reserve_list.length == val.get("int_length")),"allocate"] = 0
+
+    if val.get("label") == "traj":
+        if val.get("id") not in list(traj_reserve_list.id):
+            for length in int_length_list:
+                buf = pd.DataFrame([(val.get("id"), val.get("crossing"), float(length), -1)], columns=traj_reserve_list.columns)
+                traj_reserve_list = pd.concat([traj_reserve_list, buf], ignore_index=True)
+
+        traj_reserve_list.loc[(traj_reserve_list.id == val.get("id")) & (traj_reserve_list.length == val.get("int_length")),"allocate"] = 0
 
     elif val.get("label") == "traffic_light":
         if val.get("id") not in list(tl_reserve_list.id):
@@ -40,16 +49,16 @@ for i in range(1, 20):
     extracted_list = []
     for int_length in int_length_list:
         for state in ["0", "1"]: # state
-            candidate_list = pd_reserve_list[(pd_reserve_list.length == int_length) & (pd_reserve_list.state == state) & (pd_reserve_list.allocate == 0) & ~pd_reserve_list["id"].isin(extracted_list)]
+            candidate_list = int_reserve_list[(int_reserve_list.length == int_length) & (int_reserve_list.state == state) & (int_reserve_list.allocate == 0) & ~int_reserve_list["id"].isin(extracted_list)]
 
             if len(candidate_list) < 5:
                 print("reset allocation for pedestrian index:{}".format(i))
-                pd_reserve_list.loc[(pd_reserve_list.length == int_length) & (pd_reserve_list.state == state), "allocate"] = 0
-                candidate_list = pd_reserve_list[(pd_reserve_list.length == int_length) & (pd_reserve_list.state == state) & (pd_reserve_list.allocate == 0) & ~pd_reserve_list["id"].isin(extracted_list)]
+                int_reserve_list.loc[(int_reserve_list.length == int_length) & (int_reserve_list.state == state), "allocate"] = 0
+                candidate_list = int_reserve_list[(int_reserve_list.length == int_length) & (int_reserve_list.state == state) & (int_reserve_list.allocate == 0) & ~int_reserve_list["id"].isin(extracted_list)]
 
             for index, candidate in candidate_list.sample(n=5).iterrows():
                 extracted_list.append(str(candidate.id))
-                pd_reserve_list.loc[(pd_reserve_list.id == candidate.get("id")) & (pd_reserve_list.length == int_length), "allocate"] = 1
+                int_reserve_list.loc[(int_reserve_list.id == candidate.get("id")) & (int_reserve_list.length == int_length), "allocate"] = 1
                 playlist.append(candidate.id + "_" + str(int_length))
 
     out_list.append(playlist)
@@ -57,16 +66,16 @@ for i in range(1, 20):
 
     for int_length in int_length_list:
         for state in ["0", "1"]: # state
-            candidate_list = pd_reserve_list[(pd_reserve_list.length == int_length) & (pd_reserve_list.state == state) & (pd_reserve_list.allocate == 0) & ~pd_reserve_list["id"].isin(extracted_list)]
+            candidate_list = traj_reserve_list[(traj_reserve_list.length == int_length) & (traj_reserve_list.state == state) & (traj_reserve_list.allocate == 0) & ~traj_reserve_list["id"].isin(extracted_list)]
 
             if len(candidate_list) < 5:
                 print("reset allocation for pedestrian index:{}".format(i))
-                pd_reserve_list.loc[(pd_reserve_list.allocate != -1), "allocate"] = 0
-                candidate_list = pd_reserve_list[(pd_reserve_list.length == int_length) & (pd_reserve_list.state == state) & (pd_reserve_list.allocate == 0) & ~pd_reserve_list["id"].isin(extracted_list)]
+                traj_reserve_list.loc[(traj_reserve_list.allocate != -1), "allocate"] = 0
+                candidate_list = traj_reserve_list[(traj_reserve_list.length == int_length) & (traj_reserve_list.state == state) & (traj_reserve_list.allocate == 0) & ~traj_reserve_list["id"].isin(extracted_list)]
 
             for index, candidate in candidate_list.sample(n=5).iterrows():
                 extracted_list.append(str(candidate.id))
-                pd_reserve_list.loc[(pd_reserve_list.id == candidate.get("id")) & (pd_reserve_list.length == int_length), "allocate"] = 1
+                traj_reserve_list.loc[(traj_reserve_list.id == candidate.get("id")) & (traj_reserve_list.length == int_length), "allocate"] = 1
                 playlist.append(candidate.id + "_" + str(int_length))
 
     out_list.append(playlist)
