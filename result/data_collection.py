@@ -7,165 +7,63 @@ import numpy as np
 import glob
 import os
 import math
+import xml.etree.ElementTree as ET
+import cv2
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-# get data
-log_data = None
-# data_path = "/home/kuriatsu/Documents/experiment/pie_202201"
-data_path = "/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log"
-for file in glob.glob(os.path.join(data_path, "log*.csv")):
-    buf = pd.read_csv(file)
-    filename =file.split("/")[-1]
-    subject = filename.rsplit("_", 1)[0].replace("log_data_", "")
-    if subject in ["kanayama"]:
-        break
-    trial = filename.split("_")[-1].replace(".csv", "")
-    buf["subject"] = subject
-    buf["trial"] = trial
-    if log_data is None:
-        log_data = buf
-    else:
-        log_data = log_data.append(buf, ignore_index=True)
+def getVideo(filename):
 
-# with open("/home/kuriatsu/Documents/experiment/pie_202201/database_result_valid_cross.pkl", "rb") as f:
-with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_result_valid_cross.pkl", "rb") as f:
-    database_valid = pickle.load(f)
+    try:
+        video = cv2.VideoCapture(filename)
 
-extracted_data = pd.DataFrame(columns=[
-    "subject",
-    "trial",
-    "id",
-    "recognition_thresh", # 0.0, 0.5, 0.8 thresh of recognition system
-    "length",             # time limit for intervention
-    "first_int_time",
-    "last_int_time",
-    "int_count",
-    "annt_prob",
-    "prediction_prob", # likelihood when reqesting intervention
-    "last_intention", # False=cross True=no_cross
-    "crossing", # pedestrian will cross the road or not
-    "response_int_vs_pred", # 0=hit, 1=miss, 2=FA, 3=CR detect wrong recognition, NOISE=correct recognition
-    "responce_int_vs_prob", # detect cross pedestrian, NOISE=non-cross pedestrian
-    "responce_pred", # detect cross pedestrian, NOISE=non-cross pedestrian
-    "acc_int", # False=wrong True=Correct
-    "acc_pred",
-    "acc_int_cross",
-    "acc_pred_cross",
-    ])
+    except:
+        print('cannot open video')
+        exit(0)
 
-for i, row in log_data.iterrows():
+    # get video rate and change variable unit from time to frame num
+    fps = int(video.get(cv2.CAP_PROP_FPS))
+    image_res = [video.get(cv2.CAP_PROP_FRAME_HEIGHT), video.get(cv2.CAP_PROP_FRAME_WIDTH)]
 
-    # avoid nan values
-    if type(row.id) is not str and math.isnan(row.id):
-        continue
+    return video, image_res, fps
 
-    # create id from ped_id + int_length
-    data_id = row.id+"_"+str(row.int_length)
-    if not data_id.endswith(".0"):
-        data_id = data_id+".0"
+def getXmlRoot(filename):
 
-    # no id in database
-    if data_id not in database_valid.keys():
-    # if data_id not in database_valid.keys() and data_id not in database.keys():
-        print(f"{data_id} not found in {row.subject}, {row.trial}")
-        continue
+    # try:
+    tree = ET.parse(filename)
+    return tree.getroot()
 
-    buf = pd.Series([
-        row.subject,
-        int(row.trial),
-        row.id,
-        float(row.int_thresh),
-        float(row.int_length),
-        float(row.first_int_time),
-        float(row.last_int_time),
-        int(row.int_count),
-        float(database_valid.get(data_id).get("prob")),
-        float(database_valid.get(data_id).get("results")),
-        row.last_state,
-        int(database_valid.get(data_id).get("crossing")),
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        ], index=extracted_data.columns)
-    # print(database_valid.get(data_id).get("crossing"))
-    # if row.subject in ["tyamamoto", "takanose"]:
-    #     buf["intention_prob"] = database.get(data_id).get("prob")
-    #     buf["prediction_res"] = database.get(data_id).get("results")
-    # else:
-    #     buf["intention_prob"]= database_valid.get(data_id).get("prob")
-    #     buf["prediction_prob"] = database_valid.get(data_id).get("results")
-    #     buf["crossing"] = database_valid.get(data_id).get("crossing")
+def getAtrrib(root, tag, attrib, attrib_target):
+    for i in root.iter(tag):
+        if i.attrib.get(attrib) == attrib_target:
+            return i.text
 
-    if buf.prediction_prob > buf.recognition_thresh and buf.annt_prob > 0.5:
-        if not buf.last_intention:
-            buf.response_int_vs_pred = 3
-        else:
-            buf.response_int_vs_pred = 2
+    return None
 
-    elif buf.prediction_prob <= buf.recognition_thresh and buf.annt_prob <= 0.5:
-        if buf.last_intention:
-            buf.response_int_vs_pred = 3
-        else:
-            buf.response_int_vs_pred = 2
+base_dir = "/media/kuriatsu/SamsungKURI/PIE_data"
+video_list = []
+for i in range(1, 20):
+    video_name = "set03/video_{}".format(str(i).zfill(4))
+    annt_attribute_root = getXmlRoot("{}/annotations_attributes/{}_attributes.xml".format(base_dir, video_name))
+    annt_root = getXmlRoot("{}/annotations/{}_annt.xml".format(base_dir, video_name))
+    ego_vehicle_root = getXmlRoot("{}/annotations_vehicle/{}_obd.xml".format(base_dir, video_name))
+    video_file = "{}/PIE_clips/{}.mp4".format(base_dir, video_name)
+    print(video_file)
+    video, image_res, fps = getVideo(video_file)
 
-    elif buf.prediction_prob > buf.recognition_thresh and buf.annt_prob <= 0.5:
-        if buf.last_intention:
-            buf.response_int_vs_pred = 0
-        else:
-            buf.response_int_vs_pred = 1
-
-    elif buf.prediction_prob <= buf.recognition_thresh and buf.annt_prob > 0.5:
-        if not buf.last_intention:
-            buf.response_int_vs_pred = 0
-        else:
-            buf.response_int_vs_pred = 1
-
-    if buf.annt_prob <= 0.5:
-        if buf.last_intention:
-            buf.acc_int = 1
-            buf.responce_int_vs_prob = 3
-        else:
-            buf.acc_int = 0
-            buf.responce_int_vs_prob = 2
-
-    elif  buf.annt_prob > 0.5:
-        if not buf.last_intention:
-            buf.acc_int = 1
-            buf.responce_int_vs_prob = 0
-        else:
-            buf.acc_int = 0
-            buf.responce_int_vs_prob = 1
-
-    if buf.annt_prob <= 0.5:
-        if buf.prediction_prob <= buf.recognition_thresh:
-            buf.acc_pred = 1
-            buf.responce_pred = 3
-        else:
-            buf.acc_pred = 0
-            buf.responce_pred = 2
-
-    elif  buf.annt_prob > 0.5:
-        if buf.prediction_prob > buf.recognition_thresh:
-            buf.acc_pred = 1
-            buf.responce_pred = 0
-        else:
-            buf.acc_pred = 0
-            buf.responce_pred = 1
-
-    if buf.crossing in [0, -1]:
-        buf.acc_pred_cross = (buf.prediction_prob <= buf.recognition_thresh)
-        buf.acc_int_cross = (buf.last_intention == True)
-    else:
-        buf.acc_pred_cross = (buf.prediction_prob > buf.recognition_thresh)
-        buf.acc_int_cross = (buf.last_intention == False)
-
-    extracted_data = extracted_data.append(buf, ignore_index=True)
-
-extracted_data.to_csv(data_path+"/summary.csv")
+    for track in annt_root.iter("track"):
+        if track.get("label") == "traffic_light":
+            tl_id = getAtrrib(track[-1], "attribute", "name", "id")
+            video.set(cv2.CAP_PROP_POS_FRAMES, int(track[-10].get("frame")))
+            ret, frame = video.read()
+            if ret:
+                cv2.rectangle(
+                    frame,
+                    (int(float(track[-10].get('xtl'))), int(float(track[-10].get('ytl')))),
+                    (int(float(track[-10].get('xbr'))), int(float(track[-10].get('ybr')))),
+                    (0, 255, 0),
+                    2
+                    )
+                cv2.imwrite("{}/images/tl/{}.jpg".format(base_dir, tl_id), frame)
