@@ -98,3 +98,25 @@ ax.set_ylim(0.0, 1.0)
 ax.set_xlabel("intervention time [s]", fontsize=14)
 ax.set_ylabel("intervention accuracy", fontsize=14)
 plt.show()
+
+
+###########################################
+# collect wrong intervention ids
+###########################################
+
+task_list = {"int": "crossing intention", "tl": "traffic light", "traj":"trajectory"}
+id_data = pd.DataFrame(columns=["id", "task", "acc", "int_length", "missing"])
+for id in log_data.id.drop_duplicates():
+    for task in log_data.task.drop_duplicates():
+        for length in log_data.int_length.drop_duplicates():
+            target = log_data[(log_data.id == id) & (log_data.task == task) & (log_data.int_length == length)]
+            # acc = len(target[target.correct == 1])/(len(target))
+            acc = len(target[target.correct == 0])
+            if acc > 1:
+                print(id)
+            missing = len(target[target.correct == -1])
+            buf = pd.DataFrame([(id, task_list.get(task), acc, length, missing)], columns=id_data.columns)
+            id_data = pd.concat([id_data, buf])
+
+
+sns.barplot(x="id", y="acc", hue="int_length", data=id_data)
