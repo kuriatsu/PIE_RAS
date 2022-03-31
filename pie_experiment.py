@@ -8,9 +8,9 @@ import random
 from pie_ras import PIERas
 
 def main():
-    subject = "kato"
-    trial = 2
-    type = "tl"
+    subject = "yamamoto"
+    trial = 10
+    type = "traj"
 
     playlist = []
     type_code = {"int":0, "traj":1, "tl":2}
