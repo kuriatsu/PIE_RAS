@@ -9,335 +9,114 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import csv
+import glob
+import os
 sns.set(context='paper', style='whitegrid')
 
-database = pd.read_csv("/home/kuriatsu/Documents/experiment/pie_202201/summary.csv")
-# database = pd.read_csv("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/log/summary.csv")
+tl_black_list = [
+"3_3_96tl",
+"3_3_102tl",
+"3_4_107tl",
+"3_4_108tl",
+"3_5_112tl",
+"3_5_113tl",
+"3_5_116tl",
+"3_5_117tl",
+"3_5_118tl",
+"3_5_119tl",
+"3_5_122tl",
+"3_5_123tl",
+"3_5_126tl",
+"3_5_127tl",
+"3_6_128tl",
+"3_6_137tl",
+"3_7_142tl",
+"3_8_153tl",
+"3_8_160tl",
+"3_9_173tl",
+"3_9_174tl",
+"3_9_179tl",
+"3_10_185tl",
+"3_11_205tl",
+"3_12_218tl",
+"3_12_221tl",
+"3_16_256tl",
+"3_16_257tl",
+]
+log_data = None
+data_path = "/home/kuriatsu/Dropbox/data/pie202203"
+for file in glob.glob(os.path.join(data_path, "log*.csv")):
+    buf = pd.read_csv(file)
+    filename =file.split("/")[-1]
+    count = int(filename.replace("log_data_", "").split("_")[-1].replace(".csv", ""))
+    if count in [0, 1, 2]:
+        print("{} skipped".format(filename))
+        continue
+    trial = filename.split("_")[-1].replace(".csv", "")
+    buf["subject"] = filename.replace("log_data_", "").split("_")[0]
+    buf["task"] = filename.replace("log_data_", "").split("_")[1]
+    correct_list = []
+    for idx, row in buf.iterrows():
+        if row.id in tl_black_list:
+            row.last_state = -2
+        if row.last_state == -1:
+            correct_list.append(-1)
+        elif row.last_state == row.state:
+            correct_list.append(0)
+        else:
+            correct_list.append(1)
+    buf["correct"] = correct_list
+    if log_data is None:
+        log_data = buf
+    else:
+        log_data = log_data.append(buf, ignore_index=True)
 
+task_list = {"int": "crossing intention", "tl": "traffic light", "traj":"trajectory"}
+subject_data = pd.DataFrame(columns=["subject", "task", "acc", "int_length", "missing"])
+for subject in log_data.subject.drop_duplicates():
+    for task in log_data.task.drop_duplicates():
+        for length in log_data.int_length.drop_duplicates():
+            target = log_data[(log_data.subject == subject) & (log_data.task == task) & (log_data.int_length == length)]
+            # acc = len(target[target.correct == 1])/(len(target))
+            acc = len(target[target.correct == 1])/(len(target[target.correct == 0]) + len(target[target.correct == 1]))
+            missing = len(target[target.correct == -1])/len(target[target.correct != -2])
+            buf = pd.DataFrame([(subject, task_list.get(task), acc, length, missing)], columns=subject_data.columns)
+            subject_data = pd.concat([subject_data, buf])
 
-###############################################################################################
-print("extract mistaken target list")
-###############################################################################################
-# buf = []
-# for index, row in database[(database.response_int_vs_pred==1)&(database.recognition_thresh==0.8)].iterrows():
-# # for index, row in database[(database.responce_int_vs_prob==1)&(database.recognition_thresh==0.0)].iterrows():
-#     id = "{}_{}".format(row.id,row.length)
-#     buf = buf + [id]
-# with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist/mistake_playlilst.csv", "w") as f:
-#     writer = csv.writer(f)
-#     writer.writerow(buf)
-
-
-
-
-###############################################################################################
-print("responce vs prob count plot x=[0, 1, 2, 3] y=count")
-###############################################################################################
-fig, axes = plt.subplots(1, 3)
-sns.countplot(x="responce_int_vs_prob", hue="length", data=database[database.recognition_thresh==0.0], ax=axes[0])
-sns.countplot(x="responce_int_vs_prob", hue="length", data=database[database.recognition_thresh==0.5], ax=axes[1])
-sns.countplot(x="responce_int_vs_prob", hue="length", data=database[database.recognition_thresh==0.8], ax=axes[2])
-
-# acc rate calcuration
-acc_summary = pd.DataFrame(columns=["subject", "length", "thresh", "int_rate", "int_cross_rate", "acc_int_prob", "acc_pred_prob", "acc_int_cross", "acc_pred_cross", "first_int_time", "last_int_time", "int_count"])
-for subject in database.subject.drop_duplicates():
-    for length in database.length.drop_duplicates():
-        for thresh in database.recognition_thresh.drop_duplicates():
-            target_db = database[(database.subject == subject) & (database.length == length) & (database.recognition_thresh == thresh)]
-            if len(target_db) == 0:
-                continue
-            buf = pd.Series([
-                subject,
-                length,
-                thresh,
-                len(target_db[target_db.int_count > 0])/len(target_db),
-                len(target_db[(target_db.responce_int_vs_prob == 0) | (target_db.responce_int_vs_prob == 2)])/len(target_db),
-                sum(target_db.acc_int)/len(target_db.acc_int),
-                sum(target_db.acc_pred)/len(target_db.acc_pred),
-                sum(target_db.acc_int_cross)/len(target_db.acc_int_cross),
-                sum(target_db.acc_pred_cross)/len(target_db.acc_pred_cross),
-                target_db.first_int_time.mean(),
-                target_db.last_int_time.mean(),
-                target_db.int_count.mean(),
-                ], index=acc_summary.columns)
-            acc_summary = acc_summary.append(buf, ignore_index=True)
-
-###############################################################################################
-print("intervention/prediction accuracy on intention_prob  x=thresh*length y=acc_pred and acc_int")
-###############################################################################################
-fig, axes = plt.subplots()
-sns.barplot(x="thresh", y="acc_pred_prob", hue="length", data=acc_summary, ax=axes, palette="Blues", alpha=1.0)
-sns.barplot(x="thresh", y="acc_int_prob", hue="length", data=acc_summary, ax=axes, palette="OrRd", alpha=0.7)
-axes.set_xticks([-0.34, -0.2, -0.07, 0.07, 0.2, 0.34, 0.66, 0.8, 0.93, 1.07, 1.2, 1.34, 1.66, 1.8, 1.93, 2.07, 2.2, 2.34], y=-0.5)
-axes.set_xticklabels(["1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0"])
-ax_pos = axes.get_position()
-fig.text(ax_pos.x1-0.7, ax_pos.y1-0.84, "thresh=0.0")
-fig.text(ax_pos.x1-0.44, ax_pos.y1-0.84, "thresh=0.5")
-fig.text(ax_pos.x1-0.17, ax_pos.y1-0.84, "thresh=0.8")
-axes.set_xlabel("Recognition Thres and Intervention Time[s]", labelpad=15)
-axes.set_ylabel("Accuracy")
-handles, labels = axes.get_legend_handles_labels()
-axes.legend(handles[5::6], ["prediction", "intervention"], bbox_to_anchor=(1.0, 1.0), loc='upper left')
-plt.show()
-
-###############################################################################################
-print("intervention/prediction accuracy on crossing  x=thresh*length y=acc_pred and acc_int")
-###############################################################################################
-fig, axes = plt.subplots()
-sns.barplot(x="thresh", y="acc_pred_cross", hue="length", data=acc_summary, ax=axes, palette="Blues", alpha=1.0)
-sns.barplot(x="thresh", y="acc_int_cross", hue="length", data=acc_summary, ax=axes, palette="OrRd", alpha=0.7)
-axes.set_xticks([-0.34, -0.2, -0.07, 0.07, 0.2, 0.34, 0.66, 0.8, 0.93, 1.07, 1.2, 1.34, 1.66, 1.8, 1.93, 2.07, 2.2, 2.34], y=-0.5)
-axes.set_xticklabels(["1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0"])
-ax_pos = axes.get_position()
-fig.text(ax_pos.x1-0.7, ax_pos.y1-0.84, "thresh=0.0")
-fig.text(ax_pos.x1-0.44, ax_pos.y1-0.84, "thresh=0.5")
-fig.text(ax_pos.x1-0.17, ax_pos.y1-0.84, "thresh=0.8")
-axes.set_xlabel("Recognition Thres and Intervention Time[s]", labelpad=15)
-axes.set_ylabel("Accuracy")
-handles, labels = axes.get_legend_handles_labels()
-axes.legend(handles[5::6], ["prediction", "intervention"], bbox_to_anchor=(1.0, 1.0), loc='upper left')
-plt.show()
-
-
-# *only intervention done* acc rate calcuration
-acc_summary_int_done = pd.DataFrame(columns=["length", "thresh", "subject", "acc_int_prob", "acc_int_cross", "int_rate"])
-for subject in database.subject.drop_duplicates():
-    for length in database.length.drop_duplicates():
-        for thresh in database.recognition_thresh.drop_duplicates():
-            target_db = database[(database.subject == subject) & (database.length == length) & (database.recognition_thresh == thresh) & (database.int_count > 0)]
-            if len(target_db) == 0:
-                continue
-            buf = pd.Series([
-                length,
-                thresh,
-                subject,
-                sum(target_db.acc_int)/len(target_db.acc_int),
-                sum(target_db.acc_int_cross)/len(target_db.acc_int_cross),
-                len(target_db)/len(database[(database.subject == subject) & (database.length == length) & (database.recognition_thresh == thresh)]),
-                ], index=acc_summary_int_done.columns)
-            acc_summary_int_done = acc_summary_int_done.append(buf, ignore_index=True)
-
-
-###############################################################################################
-print("*only intervention done* intervention/prediction accuracy on intention_prob  x=thresh*length y=acc_pred and acc_int")
-###############################################################################################
-fig, axes = plt.subplots()
-sns.barplot(x="thresh", y="int_rate", hue="length", data=acc_summary_int_done, ax=axes, palette="Blues", alpha=1.0)
-sns.barplot(x="thresh", y="acc_int_prob", hue="length", data=acc_summary_int_done, ax=axes, palette="OrRd", alpha=0.6)
-axes.set_xticks([-0.34, -0.2, -0.07, 0.07, 0.2, 0.34, 0.66, 0.8, 0.93, 1.07, 1.2, 1.34, 1.66, 1.8, 1.93, 2.07, 2.2, 2.34], y=-0.5)
-axes.set_xticklabels(["1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0"])
-ax_pos = axes.get_position()
-fig.text(ax_pos.x1-0.7, ax_pos.y1-0.84, "thresh=0.0")
-fig.text(ax_pos.x1-0.44, ax_pos.y1-0.84, "thresh=0.5")
-fig.text(ax_pos.x1-0.17, ax_pos.y1-0.84, "thresh=0.8")
-axes.set_xlabel("Recognition Thres and Intervention Time[s]", labelpad=15)
-axes.set_ylabel("Count")
-handles, labels = axes.get_legend_handles_labels()
-axes.legend(handles[5::6], ["intervention rate", "accuracy"], bbox_to_anchor=(1.0, 1.0), loc='upper left')
-plt.show()
-
-###############################################################################################
-print("*only intervention done* intervention/prediction accuracy on crossing  x=thresh*length y=acc_pred and acc_int")
-###############################################################################################
-fig, axes = plt.subplots()
-sns.barplot(x="thresh", y="int_rate", hue="length", data=acc_summary_int_done, ax=axes, palette="Blues", alpha=1.0)
-sns.barplot(x="thresh", y="acc_int_cross", hue="length", data=acc_summary_int_done, ax=axes, palette="OrRd", alpha=0.7)
-axes.set_xticks([-0.34, -0.2, -0.07, 0.07, 0.2, 0.34, 0.66, 0.8, 0.93, 1.07, 1.2, 1.34, 1.66, 1.8, 1.93, 2.07, 2.2, 2.34], y=-0.5)
-axes.set_xticklabels(["1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0"])
-ax_pos = axes.get_position()
-fig.text(ax_pos.x1-0.7, ax_pos.y1-0.84, "thresh=0.0")
-fig.text(ax_pos.x1-0.44, ax_pos.y1-0.84, "thresh=0.5")
-fig.text(ax_pos.x1-0.17, ax_pos.y1-0.84, "thresh=0.8")
-axes.set_xlabel("Recognition Thres and Intervention Time[s]", labelpad=15)
-axes.set_ylabel("Accuracy")
-handles, labels = axes.get_legend_handles_labels()
-axes.legend(handles[5::6], ["intervention rate", "accuracy"], bbox_to_anchor=(1.0, 1.0), loc='upper left')
-plt.show()
-
-
-###############################################################################################
-print("Thresh vs int_rate")
-###############################################################################################
-fig, axes = plt.subplots()
-for subject in acc_summary.subject.drop_duplicates():
-    y = []
-    for thresh in [0.0, 0.5, 0.8]:
-        target_db = acc_summary[(acc_summary.subject == subject) & (acc_summary.thresh == thresh)]
-        y.append(target_db.int_rate.mean())
-
-    sns.lineplot(x=[0.0, 0.5, 0.8], y=y, ax=axes)
-
-###############################################################################################
-print("Thresh vs int_count")
-###############################################################################################
-fig, axes = plt.subplots()
-for subject in acc_summary.subject.drop_duplicates():
-    y = []
-    for thresh in [0.0, 0.5, 0.8]:
-        target_db = acc_summary[(acc_summary.subject == subject) & (acc_summary.thresh == thresh)]
-        y.append(target_db.int_count.mean())
-
-    sns.lineplot(x=[0.0, 0.5, 0.8], y=y, ax=axes)
-
-
-###############################################################################################
-print("Thresh vs cross count")
-###############################################################################################
-fig, axes = plt.subplots()
-for subject in acc_summary.subject.drop_duplicates():
-    y = []
-    for thresh in [0.0, 0.5, 0.8]:
-        target_db = acc_summary[(acc_summary.subject == subject) & (acc_summary.thresh == thresh)]
-        y.append(target_db.int_cross_rate.mean())
-
-    sns.lineplot(x=[0.0, 0.5, 0.8], y=y, ax=axes)
-
-###############################################################################################
-print("Thresh vs int_time")
-###############################################################################################
-fig, axes = plt.subplots()
-for subject in acc_summary.subject.drop_duplicates():
-    y = []
-    for thresh in [0.0, 0.5, 0.8]:
-        target_db = acc_summary[(acc_summary.subject == subject) & (acc_summary.thresh == thresh)]
-        y.append(target_db.last_int_time.mean())
-
-    sns.lineplot(x=[0.0, 0.5, 0.8], y=y, ax=axes)
-
-
-
-###############################################################################################
-print("length vs int_time")
-###############################################################################################
-fig, axes = plt.subplots()
-for subject in acc_summary.subject.drop_duplicates():
-    y = []
-    for length in [0, 1, 3, 5, 7, 9, 12]:
-        target_db = acc_summary[(acc_summary.subject == subject) & (acc_summary.length == length)]
-        y.append(target_db.first_int_time.mean())
-
-    sns.lineplot(x=[0, 1, 3, 5, 7, 9, 12], y=y, ax=axes)
-
-
-###############################################################################################
-print("int vs prob responce rate stacked bar plot")
-###############################################################################################
-responce_summary_int = pd.DataFrame(columns=["length", "thresh", "responce", "count"])
-for length in database.length.drop_duplicates():
-    for thresh in database.recognition_thresh.drop_duplicates():
-        for responce in [0, 1, 2, 3]:
-            buf = pd.Series([length, thresh, responce,
-                len(database[(database.length==length) & (database.recognition_thresh==thresh) & (database.responce_int_vs_prob <= responce)])/len(database[(database.length==length) & (database.recognition_thresh==thresh)])],
-                index=responce_summary_int.columns)
-            responce_summary_int = responce_summary_int.append(buf, ignore_index=True)
-
-fig, axes = plt.subplots()
-sns.barplot(x="thresh", y="count", hue="length", data=responce_summary_int[responce_summary_int.responce==3], ax=axes, palette=sns.color_palette(["orangered"]*6), edgecolor="0.2")
-sns.barplot(x="thresh", y="count", hue="length", data=responce_summary_int[responce_summary_int.responce==2], ax=axes, palette=sns.color_palette(["lightsalmon"]*6), edgecolor="0.2")
-sns.barplot(x="thresh", y="count", hue="length", data=responce_summary_int[responce_summary_int.responce==1], ax=axes, palette=sns.color_palette(["turquoise"]*6), edgecolor="0.2")
-sns.barplot(x="thresh", y="count", hue="length", data=responce_summary_int[responce_summary_int.responce==0], ax=axes, palette=sns.color_palette(["teal"]*6), edgecolor="0.2")
-axes.set_xticks([-0.34, -0.2, -0.07, 0.07, 0.2, 0.34, 0.66, 0.8, 0.93, 1.07, 1.2, 1.34, 1.66, 1.8, 1.93, 2.07, 2.2, 2.34], y=-0.5)
-axes.set_xticklabels(["1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0"])
-ax_pos = axes.get_position()
-fig.text(ax_pos.x1-0.7, ax_pos.y1-0.84, "thresh=0.0")
-fig.text(ax_pos.x1-0.44, ax_pos.y1-0.84, "thresh=0.5")
-fig.text(ax_pos.x1-0.17, ax_pos.y1-0.84, "thresh=0.8")
-axes.set_xlabel("Recognition Thres and Intervention Time[s]", labelpad=20)
-axes.set_ylabel("Responce Rate")
-handles, labels = axes.get_legend_handles_labels()
-axes.legend(handles[::6], ["CR", "FA", "miss", "hit"], bbox_to_anchor=(1.0, 1.0), loc='upper left')
-plt.show()
-
-
-###############################################################################################
-print(" prediction responce rate stacked bar plot")
-###############################################################################################
-responce_summary_pred = pd.DataFrame(columns=["length", "thresh", "responce", "count"])
-for length in database.length.drop_duplicates():
-    for thresh in database.recognition_thresh.drop_duplicates():
-        for responce in [0, 1, 2, 3]:
-            buf = pd.Series([length, thresh, responce,
-                len(database[(database.length==length) & (database.recognition_thresh==thresh) & (database.responce_pred <= responce)])/len(database[(database.length==length) & (database.recognition_thresh==thresh)])],
-                index=responce_summary_pred.columns)
-            responce_summary_pred = responce_summary_pred.append(buf, ignore_index=True)
-
-fig, axes = plt.subplots()
-cr = sns.barplot(x="thresh", y="count", hue="length", data=responce_summary_pred[responce_summary_pred.responce==3], ax=axes, palette=sns.color_palette(["orangered"]*6), edgecolor="0.2")
-fa = sns.barplot(x="thresh", y="count", hue="length", data=responce_summary_pred[responce_summary_pred.responce==2], ax=axes, palette=sns.color_palette(["lightsalmon"]*6), edgecolor="0.2")
-miss = sns.barplot(x="thresh", y="count", hue="length", data=responce_summary_pred[responce_summary_pred.responce==1], ax=axes, palette=sns.color_palette(["turquoise"]*6), edgecolor="0.2")
-hit = sns.barplot(x="thresh", y="count", hue="length", data=responce_summary_pred[responce_summary_pred.responce==0], ax=axes, palette=sns.color_palette(["teal"]*6), edgecolor="0.2")
-axes.set_xticks([-0.34, -0.2, -0.07, 0.07, 0.2, 0.34, 0.66, 0.8, 0.93, 1.07, 1.2, 1.34, 1.66, 1.8, 1.93, 2.07, 2.2, 2.34], y=-0.5)
-axes.set_xticklabels(["1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0"])
-ax_pos = axes.get_position()
-fig.text(ax_pos.x1-0.7, ax_pos.y1-0.84, "thresh=0.0")
-fig.text(ax_pos.x1-0.44, ax_pos.y1-0.84, "thresh=0.5")
-fig.text(ax_pos.x1-0.17, ax_pos.y1-0.84, "thresh=0.8")
-axes.set_xlabel("Recognition Thres and Intervention Time[s]", labelpad=20)
-axes.set_ylabel("Responce Rate")
-handles, labels = axes.get_legend_handles_labels()
-axes.legend(handles[::6], ["CR", "FA", "miss", "hit"], bbox_to_anchor=(1.0, 1.0), loc='upper left')
-plt.show()
-
-###############################################################################################
-print("int vs prediction responce rate stacked bar plot")
-###############################################################################################
-responce_summary = pd.DataFrame(columns=["length", "thresh", "responce", "count"])
-for length in database.length.drop_duplicates():
-    for thresh in database.recognition_thresh.drop_duplicates():
-        for responce in [0, 1, 2, 3]:
-            buf = pd.Series([length, thresh, responce,
-                len(database[(database.length==length) & (database.recognition_thresh==thresh) & (database.response_int_vs_pred <= responce)])/len(database[(database.length==length) & (database.recognition_thresh==thresh)])],
-                index=responce_summary.columns)
-            responce_summary = responce_summary.append(buf, ignore_index=True)
-
-fig, axes = plt.subplots()
-sns.barplot(x="thresh", y="count", hue="length", data=responce_summary[responce_summary.responce==3], ax=axes, palette=sns.color_palette(["orangered"]*6), edgecolor="0.2")
-sns.barplot(x="thresh", y="count", hue="length", data=responce_summary[responce_summary.responce==2], ax=axes, palette=sns.color_palette(["lightsalmon"]*6), edgecolor="0.2")
-sns.barplot(x="thresh", y="count", hue="length", data=responce_summary[responce_summary.responce==1], ax=axes, palette=sns.color_palette(["turquoise"]*6), edgecolor="0.2")
-sns.barplot(x="thresh", y="count", hue="length", data=responce_summary[responce_summary.responce==0], ax=axes, palette=sns.color_palette(["teal"]*6), edgecolor="0.2")
-axes.set_xticks([-0.34, -0.2, -0.07, 0.07, 0.2, 0.34, 0.66, 0.8, 0.93, 1.07, 1.2, 1.34, 1.66, 1.8, 1.93, 2.07, 2.2, 2.34], y=-0.5)
-axes.set_xticklabels(["1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0", "1.0", "3.0", "5.0", "7.0", "9.0", "12.0"])
-ax_pos = axes.get_position()
-fig.text(ax_pos.x1-0.7, ax_pos.y1-0.84, "thresh=0.0")
-fig.text(ax_pos.x1-0.44, ax_pos.y1-0.84, "thresh=0.5")
-fig.text(ax_pos.x1-0.17, ax_pos.y1-0.84, "thresh=0.8")
-axes.set_xlabel("Recognition Thres and Intervention Time[s]", labelpad=20)
-axes.set_ylabel("Responce Rate")
-handles, labels = axes.get_legend_handles_labels()
-axes.legend(handles[::6], ["CR", "FA", "miss", "hit"], bbox_to_anchor=(1.0, 1.0), loc='upper left')
-plt.show()
-
-
-###############################################################################################
-print("individual data")
-###############################################################################################
-indiv_summary = pd.DataFrame(columns=["subject", "int_bin", "acc", "thresh", "trial"])
-for subject in database.subject.drop_duplicates():
-    for thresh in database.recognition_thresh.drop_duplicates():
-        target_db = database[(database.subject==subject) & (database.recognition_thresh==thresh)]
-        int_bin = np.nan if len(target_db) == 0 else len(target_db[target_db.int_count>0])/len(target_db)
-        acc     = np.nan if len(target_db) == 0 else target_db.acc_int.sum()/len(target_db)
-        buf = pd.Series([subject, int_bin, acc, thresh, target_db.trial.mean()], index=indiv_summary.columns)
-        indiv_summary = indiv_summary.append(buf, ignore_index=True)
-
-# sns.lineplot(x="trial", y="int_bin", hue="subject", data=indiv_summary)
-# sns.lineplot(x="trial", y="int_bin", hue="subject", data=indiv_summary)
-# sns.lineplot(x="thresh", y="acc", hue="subject", data=indiv_summary)
-# sns.lineplot(x="thresh", y="acc", hue="subject", data=indiv_summary)
-
-
-###############################################################################################
-print("id difference")
-###############################################################################################
+# sns.barplot(x="task", y="acc", hue="int_length", data=subject_data, ci="sd")
+# sns.barplot(x="task", y="acc", data=subject_data, ci="sd")
 fig, ax = plt.subplots()
-# color = {0.0:}
-for thresh in database.recognition_thresh.drop_duplicates():
-    id_summary = pd.DataFrame(columns=["id", "annt_prob", "prediction_prob", "acc", "var"])
-    for id in database.id.drop_duplicates():
-        target_db = database[(database.id==id) & (database.recognition_thresh==thresh)]
-        buf = pd.Series([id, target_db.annt_prob.mean(), target_db.prediction_prob.mean(), target_db.acc_int.sum()/len(target_db), target_db.acc_int.var()], index=id_summary.columns)
-        id_summary = id_summary.append(buf, ignore_index=True)
-
-    sns.regplot(x="annt_prob", y="acc", data=id_summary.dropna(), label=thresh, ax=ax)
-
+sns.pointplot(x="int_length", y="missing", data=subject_data, hue="task", ax = ax)
+ax.set_ylim(0.0, 1.0)
+ax.set_xlabel("intervention time [s]", fontsize=14)
+ax.set_ylabel("intervention missing rate", fontsize=14)
 plt.show()
+fig, ax = plt.subplots()
+
+sns.pointplot(x="int_length", y="acc", data=subject_data, hue="task", ax=ax)
+ax.set_ylim(0.0, 1.0)
+ax.set_xlabel("intervention time [s]", fontsize=14)
+ax.set_ylabel("intervention accuracy", fontsize=14)
+plt.show()
+
+
+###########################################
+# collect wrong intervention ids
+###########################################
+
+task_list = {"int": "crossing intention", "tl": "traffic light", "traj":"trajectory"}
+id_data = pd.DataFrame(columns=["id", "task", "acc", "int_length", "missing"])
+for id in log_data.id.drop_duplicates():
+    for task in log_data.task.drop_duplicates():
+        for length in log_data.int_length.drop_duplicates():
+            target = log_data[(log_data.id == id) & (log_data.task == task) & (log_data.int_length == length)]
+            # acc = len(target[target.correct == 1])/(len(target))
+            acc = len(target[target.correct == 0])
+            if acc > 1:
+                print(id)
+            missing = len(target[target.correct == -1])
+            buf = pd.DataFrame([(id, task_list.get(task), acc, length, missing)], columns=id_data.columns)
+            id_data = pd.concat([id_data, buf])
+
+
+sns.barplot(x="id", y="acc", hue="int_length", data=id_data)
