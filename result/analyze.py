@@ -12,7 +12,7 @@ import csv
 import glob
 import os
 sns.set(context='paper', style='whitegrid')
-
+hue_order = ["traffic light", "crossing intention", "trajectory"]
 tl_black_list = [
 "3_3_96tl",
 "3_3_102tl",
@@ -86,37 +86,59 @@ for subject in log_data.subject.drop_duplicates():
 # sns.barplot(x="task", y="acc", hue="int_length", data=subject_data, ci="sd")
 # sns.barplot(x="task", y="acc", data=subject_data, ci="sd")
 fig, ax = plt.subplots()
-sns.pointplot(x="int_length", y="missing", data=subject_data, hue="task", ax = ax)
+sns.pointplot(x="int_length", y="missing", data=subject_data, hue="task", hue_order=hue_order, ax = ax)
 ax.set_ylim(0.0, 1.0)
-ax.set_xlabel("intervention time [s]", fontsize=14)
-ax.set_ylabel("intervention missing rate", fontsize=14)
+ax.set_xlabel("intervention time [s]", fontsize=18)
+ax.set_ylabel("intervention missing rate", fontsize=18)
+ax.tick_params(labelsize=14)
+ax.legend(fontsize=14)
 plt.show()
 fig, ax = plt.subplots()
 
-sns.pointplot(x="int_length", y="acc", data=subject_data, hue="task", ax=ax)
+sns.pointplot(x="int_length", y="acc", data=subject_data, hue="task", hue_order=hue_order, ax=ax)
 ax.set_ylim(0.0, 1.0)
-ax.set_xlabel("intervention time [s]", fontsize=14)
-ax.set_ylabel("intervention accuracy", fontsize=14)
+ax.set_xlabel("intervention time [s]", fontsize=18)
+ax.set_ylabel("intervention accuracy", fontsize=18)
+ax.tick_params(labelsize=14)
+ax.legend(fontsize=14)
 plt.show()
 
 
 ###########################################
 # collect wrong intervention ids
 ###########################################
+# 
+# task_list = {"int": "crossing intention", "tl": "traffic light", "traj":"trajectory"}
+# id_data = pd.DataFrame(columns=["id", "task", "acc", "int_length", "missing"])
+# for id in log_data.id.drop_duplicates():
+#     for task in log_data.task.drop_duplicates():
+#         for length in log_data.int_length.drop_duplicates():
+#             target = log_data[(log_data.id == id) & (log_data.task == task) & (log_data.int_length == length)]
+#             # acc = len(target[target.correct == 1])/(len(target))
+#             acc = len(target[target.correct == 0])
+#             if acc > 1:
+#                 print(id)
+#             missing = len(target[target.correct == -1])
+#             buf = pd.DataFrame([(id, task_list.get(task), acc, length, missing)], columns=id_data.columns)
+#             id_data = pd.concat([id_data, buf])
+#
+#
+# sns.barplot(x="id", y="acc", hue="int_length", data=id_data)
 
-task_list = {"int": "crossing intention", "tl": "traffic light", "traj":"trajectory"}
-id_data = pd.DataFrame(columns=["id", "task", "acc", "int_length", "missing"])
-for id in log_data.id.drop_duplicates():
-    for task in log_data.task.drop_duplicates():
-        for length in log_data.int_length.drop_duplicates():
-            target = log_data[(log_data.id == id) & (log_data.task == task) & (log_data.int_length == length)]
-            # acc = len(target[target.correct == 1])/(len(target))
-            acc = len(target[target.correct == 0])
-            if acc > 1:
-                print(id)
-            missing = len(target[target.correct == -1])
-            buf = pd.DataFrame([(id, task_list.get(task), acc, length, missing)], columns=id_data.columns)
-            id_data = pd.concat([id_data, buf])
 
+###############################################
+# Workload
+###############################################
 
-sns.barplot(x="id", y="acc", hue="int_length", data=id_data)
+workload = pd.read_csv("{}/workload.csv".format(data_path))
+workload.satisfy = 10-workload.satisfy
+workload_melted = pd.melt(workload, id_vars=["subject", "type"], var_name="scale", value_name="rate")
+
+fig, ax = plt.subplots()
+sns.barplot(x="scale", y="rate", data=workload_melted, hue="type", hue_order=hue_order, ax=ax)
+ax.set_ylim(0, 10)
+ax.legend(bbox_to_anchor=(0.0, 1.0), loc='lower left', fontsize=14)
+ax.set_xlabel("scale", fontsize=18)
+ax.set_ylabel("rate", fontsize=18)
+ax.tick_params(labelsize=14)
+plt.show()
