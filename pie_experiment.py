@@ -8,7 +8,7 @@ import random
 from pie_ras import PIERas
 
 def main():
-    subject = "yamamoto"
+    subject = "test"
     trial = 10
     type = "traj"
 
