@@ -85,31 +85,103 @@ for subject in log_data.subject.drop_duplicates():
             buf = pd.DataFrame([(subject, task_list.get(task), acc, length, missing)], columns=subject_data.columns)
             subject_data = pd.concat([subject_data, buf])
 
+subject_data.acc = subject_data.acc * 100
+subject_data.missing = subject_data.missing * 100
 # sns.barplot(x="task", y="acc", hue="int_length", data=subject_data, ci="sd")
 # sns.barplot(x="task", y="acc", data=subject_data, ci="sd")
 fig, ax = plt.subplots()
-sns.pointplot(x="int_length", y="missing", data=subject_data, hue="task", hue_order=hue_order, ax = ax)
-ax.set_ylim(0.0, 1.0)
+sns.pointplot(x="int_length", y="missing", data=subject_data, hue="task", hue_order=hue_order, ax = ax, capsize=0.1, ci=95)
+ax.set_ylim(0.0, 100.0)
 ax.set_xlabel("intervention time [s]", fontsize=18)
-ax.set_ylabel("intervention missing rate", fontsize=18)
+ax.set_ylabel("intervention missing rate [%]", fontsize=18)
 ax.tick_params(labelsize=14)
 ax.legend(fontsize=14)
 plt.show()
+
 fig, ax = plt.subplots()
-
-sns.pointplot(x="int_length", y="acc", data=subject_data, hue="task", hue_order=hue_order, ax=ax)
-ax.set_ylim(0.0, 1.0)
+sns.pointplot(x="int_length", y="acc", data=subject_data, hue="task", hue_order=hue_order, ax=ax, capsize=0.1, ci=95)
+ax.set_ylim(0.0, 100.0)
 ax.set_xlabel("intervention time [s]", fontsize=18)
-ax.set_ylabel("intervention accuracy", fontsize=18)
+ax.set_ylabel("intervention accuracy [%]", fontsize=18)
 ax.tick_params(labelsize=14)
 ax.legend(fontsize=14)
 plt.show()
 
+target = subject_data[subject_data.task == "crossing intention"]
+print("int acc mean: 1.0:{}, 3.0:{}, 5.0:{}, 8.0:{}\n std {} {} {} {}".format(
+    target[target.int_length == 1.0].acc.mean(),
+    target[target.int_length == 3.0].acc.mean(),
+    target[target.int_length == 5.0].acc.mean(),
+    target[target.int_length == 8.0].acc.mean(),
+    target[target.int_length == 1.0].acc.std(),
+    target[target.int_length == 3.0].acc.std(),
+    target[target.int_length == 5.0].acc.std(),
+    target[target.int_length == 8.0].acc.std(),
+))
 
+target = subject_data[subject_data.task == "trajectory"]
+print("traj acc mean: 1.0:{}, 3.0:{}, 5.0:{}, 8.0:{}\n std {} {} {} {}".format(
+    target[target.int_length == 1.0].acc.mean(),
+    target[target.int_length == 3.0].acc.mean(),
+    target[target.int_length == 5.0].acc.mean(),
+    target[target.int_length == 8.0].acc.mean(),
+    target[target.int_length == 1.0].acc.std(),
+    target[target.int_length == 3.0].acc.std(),
+    target[target.int_length == 5.0].acc.std(),
+    target[target.int_length == 8.0].acc.std(),
+))
+
+target = subject_data[subject_data.task == "traffic light"]
+print("tl acc mean: 1.0:{}, 3.0:{}, 5.0:{}, 8.0:{}\n std {} {} {} {}".format(
+    target[target.int_length == 1.0].acc.mean(),
+    target[target.int_length == 3.0].acc.mean(),
+    target[target.int_length == 5.0].acc.mean(),
+    target[target.int_length == 8.0].acc.mean(),
+    target[target.int_length == 1.0].acc.std(),
+    target[target.int_length == 3.0].acc.std(),
+    target[target.int_length == 5.0].acc.std(),
+    target[target.int_length == 8.0].acc.std(),
+))
+
+target = subject_data[subject_data.task == "crossing intention"]
+print("int missing mean: 1.0:{}, 3.0:{}, 5.0:{}, 8.0:{}\n std {} {} {} {}".format(
+    target[target.int_length == 1.0].missing.mean(),
+    target[target.int_length == 3.0].missing.mean(),
+    target[target.int_length == 5.0].missing.mean(),
+    target[target.int_length == 8.0].missing.mean(),
+    target[target.int_length == 1.0].missing.std(),
+    target[target.int_length == 3.0].missing.std(),
+    target[target.int_length == 5.0].missing.std(),
+    target[target.int_length == 8.0].missing.std(),
+))
+
+target = subject_data[subject_data.task == "trajectory"]
+print("traj missing mean: 1.0:{}, 3.0:{}, 5.0:{}, 8.0:{}\n std {} {} {} {}".format(
+    target[target.int_length == 1.0].missing.mean(),
+    target[target.int_length == 3.0].missing.mean(),
+    target[target.int_length == 5.0].missing.mean(),
+    target[target.int_length == 8.0].missing.mean(),
+    target[target.int_length == 1.0].missing.std(),
+    target[target.int_length == 3.0].missing.std(),
+    target[target.int_length == 5.0].missing.std(),
+    target[target.int_length == 8.0].missing.std(),
+))
+
+target = subject_data[subject_data.task == "traffic light"]
+print("tl missing mean: 1.0:{}, 3.0:{}, 5.0:{}, 8.0:{}\n std {} {} {} {}".format(
+    target[target.int_length == 1.0].missing.mean(),
+    target[target.int_length == 3.0].missing.mean(),
+    target[target.int_length == 5.0].missing.mean(),
+    target[target.int_length == 8.0].missing.mean(),
+    target[target.int_length == 1.0].missing.std(),
+    target[target.int_length == 3.0].missing.std(),
+    target[target.int_length == 5.0].missing.std(),
+    target[target.int_length == 8.0].missing.std(),
+))
 ###########################################
 # collect wrong intervention ids
 ###########################################
-# 
+#
 # task_list = {"int": "crossing intention", "tl": "traffic light", "traj":"trajectory"}
 # id_data = pd.DataFrame(columns=["id", "task", "acc", "int_length", "missing"])
 # for id in log_data.id.drop_duplicates():
@@ -141,6 +213,6 @@ sns.barplot(x="scale", y="rate", data=workload_melted, hue="type", hue_order=hue
 ax.set_ylim(0, 10)
 ax.legend(bbox_to_anchor=(0.0, 1.0), loc='lower left', fontsize=14)
 ax.set_xlabel("scale", fontsize=18)
-ax.set_ylabel("rate", fontsize=18)
+ax.set_ylabel("score (lower is better)", fontsize=18)
 ax.tick_params(labelsize=14)
 plt.show()
