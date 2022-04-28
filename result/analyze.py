@@ -13,6 +13,7 @@ import glob
 import os
 sns.set(context='paper', style='whitegrid')
 hue_order = ["traffic light", "crossing intention", "trajectory"]
+eps=0.01
 tl_black_list = [
 "3_3_96tl",
 "3_3_102tl",
@@ -54,6 +55,7 @@ for file in glob.glob(os.path.join(data_path, "log*.csv")):
     if count in [0, 1, 2]:
         print("{} skipped".format(filename))
         continue
+
     trial = filename.split("_")[-1].replace(".csv", "")
     buf["subject"] = filename.replace("log_data_", "").split("_")[0]
     buf["task"] = filename.replace("log_data_", "").split("_")[1]
@@ -80,8 +82,8 @@ for subject in log_data.subject.drop_duplicates():
         for length in log_data.int_length.drop_duplicates():
             target = log_data[(log_data.subject == subject) & (log_data.task == task) & (log_data.int_length == length)]
             # acc = len(target[target.correct == 1])/(len(target))
-            acc = len(target[target.correct == 1])/(len(target[target.correct == 0]) + len(target[target.correct == 1]))
-            missing = len(target[target.correct == -1])/len(target[target.correct != -2])
+            acc = len(target[target.correct == 1])/(len(target[target.correct == 0]) + len(target[target.correct == 1])+eps)
+            missing = len(target[target.correct == -1])/(len(target[target.correct != -2])+eps)
             buf = pd.DataFrame([(subject, task_list.get(task), acc, length, missing)], columns=subject_data.columns)
             subject_data = pd.concat([subject_data, buf])
 
@@ -181,24 +183,33 @@ print("tl missing mean: 1.0:{}, 3.0:{}, 5.0:{}, 8.0:{}\n std {} {} {} {}".format
 ###########################################
 # collect wrong intervention ids
 ###########################################
-#
-# task_list = {"int": "crossing intention", "tl": "traffic light", "traj":"trajectory"}
-# id_data = pd.DataFrame(columns=["id", "task", "acc", "int_length", "missing"])
-# for id in log_data.id.drop_duplicates():
-#     for task in log_data.task.drop_duplicates():
-#         for length in log_data.int_length.drop_duplicates():
-#             target = log_data[(log_data.id == id) & (log_data.task == task) & (log_data.int_length == length)]
-#             # acc = len(target[target.correct == 1])/(len(target))
-#             acc = len(target[target.correct == 0])
-#             if acc > 1:
-#                 print(id)
-#             missing = len(target[target.correct == -1])
-#             buf = pd.DataFrame([(id, task_list.get(task), acc, length, missing)], columns=id_data.columns)
-#             id_data = pd.concat([id_data, buf])
-#
-#
-# sns.barplot(x="id", y="acc", hue="int_length", data=id_data)
 
+task_list = {"int": "crossing intention", "tl": "traffic light", "traj":"trajectory"}
+id_data = pd.DataFrame(columns=["id", "task", "false_rate", "int_length", "missing", "false_count", "total"])
+for id in log_data.id.drop_duplicates():
+    for task in log_data.task.drop_duplicates():
+        for length in log_data.int_length.drop_duplicates():
+            target = log_data[(log_data.id == id) & (log_data.task == task) & (log_data.int_length == length)]
+            # acc = len(target[target.correct == 1])/(len(target))
+            count = len(target[target.correct == 0])
+            total = len(target)
+            if len(target) > 0:
+                acc = len(target[target.correct == 0])/len(target)
+            else:
+                acc = 0.0
+            if acc > 1:
+                print(id)
+            missing = len(target[target.correct == -1])
+            buf = pd.DataFrame([(id, task_list.get(task), acc, length, missing, count, total)], columns=id_data.columns)
+            id_data = pd.concat([id_data, buf])
+
+
+# sns.barplot(x="id", y="acc", hue="int_length", data=id_data)
+pd.set_option('display.max_rows', None)
+sorted = id_data.sort_values(['false_rate', "false_count"], ascending=False)
+sorted[(sorted.false_rate>0.0)&(sorted.false_count>1)].id.values
+
+id_data.count
 
 ###############################################
 # Workload
