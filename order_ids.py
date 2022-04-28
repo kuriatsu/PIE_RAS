@@ -46,7 +46,7 @@ for name, val in database.items():
 print("finish to create reserve list")
 print(int_reserve_list[int_reserve_list.length == 8.0])
 
-for i in range(1, 20):
+for i in range(1, 5):
     print(i)
     playlist = []
     extracted_list = []
@@ -100,6 +100,6 @@ for i in range(1, 20):
     out_list.append(playlist)
 
 
-with open("./data/PIE_data/experiment/playlist.csv", 'w') as f:
+with open("./data/PIE_data/experiment/playlist2.csv", 'w') as f:
     writer = csv.writer(f)
     writer.writerows(out_list)

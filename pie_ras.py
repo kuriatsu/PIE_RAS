@@ -10,9 +10,10 @@ import csv
 import copy
 import pygame
 from pygame.locals import JOYBUTTONUP, JOYBUTTONDOWN, JOYHATMOTION
+import pandas as pd
 
 class PIERas():
-    def __init__(self, recognition_type):
+    def __init__(self, recognition_type, first_state):
 
         self.log_file = "./data/PIE_data/experiment/log_data.csv"
         self.recognition_type = recognition_type # "traj", "tl", "int"
@@ -38,6 +39,7 @@ class PIERas():
         self.target_anchor = None
         self.icon_dict = self.prepareIcon("./data/pictogram", recognition_type)
         self.icon_is_right = False
+        self.first_state = first_state
 
         self.log = []
 
@@ -195,25 +197,6 @@ class PIERas():
             'xbr': int(obj_anchor.get('xtl') + icon.get('roi')[1] - icon_offset_x)
             }
 
-            # elif self.recognition_type == "traj":
-            #     # position of the icon
-            #     icon_offset_y = int((icon.get("roi")[0] - (obj_anchor.get('ybr') - obj_anchor.get('ytl'))) * 0.5)
-            #     icon_offset_x = 5
-            #     if obj_anchor.get('xbr') < self.video_res.get("x") * 0.5:
-            #         icon_position = {
-            #         'ytl': int(obj_anchor.get('ytl') + icon_offset_y),
-            #         'xtl': int(obj_anchor.get('xbr') + icon_offset_x),
-            #         'ybr': int(obj_anchor.get('ytl') + icon_offset_y + icon.get('roi')[0]),
-            #         'xbr': int(obj_anchor.get('xbr') + icon_offset_x + icon.get('roi')[1]),
-            #         }
-            #     else:
-            #         icon_position = {
-            #         'ytl': int(obj_anchor.get('ytl') + icon_offset_y),
-            #         'xtl': int(obj_anchor.get('xtl') - icon_offset_x),
-            #         'ybr': int(obj_anchor.get('ytl') + icon_offset_y + icon.get('roi')[0]),
-            #         'xbr': int(obj_anchor.get('xtl') - icon_offset_x - icon.get('roi')[1]),
-            #         }
-
         self.drawIcon(frame, icon, icon_position)
         cv2.rectangle(
             frame,
@@ -255,7 +238,7 @@ class PIERas():
         """
 
         if position.get('ytl') < 0 or position.get('ybr') > self.video_res.get("y") or position.get('xtl') < 0 or position.get('xbr') > self.video_res.get("x"):
-            print(f"icon is out of range y:{position.get('ytl')}-{position.get('ybr')}, x:{position.get('xtl')}-{position.get('xbr')}")
+            # print(f"icon is out of range y:{position.get('ytl')}-{position.get('ybr')}, x:{position.get('xtl')}-{position.get('xbr')}")
             return
 
         # put icon on frame
@@ -305,17 +288,14 @@ class PIERas():
 
 
     def getHMICropAnchor(self, obj_anchor, video_res):
-        # obj_anchor = self.database.get("anchor")[frame_count-int(database.get("start_frame"))]
         # calc image-crop-region crop -> expaned to original frame geometry
         max_ytl = video_res.get("y") * ( (1.0 - self.hmi_crop_rate_max) * 0.5 + self.hmi_image_offset_rate_y )
         min_ybr = video_res.get("y") * (0.5 + self.hmi_crop_rate_max*0.5 + self.hmi_image_offset_rate_y)
         max_xtl = video_res.get("x") * ( (1.0 - self.hmi_crop_rate_max)*0.5 )
         min_xbr = video_res.get("x") * (0.5 + self.hmi_crop_rate_max*0.5)
-        # print("ytl:{}, ybr:{}, xtl:{}, xbr:{}".format(max_ytl, m+ video_res.get("y") * self.hmi_image_offset_rate_yin_ybr, max_xtl, min_xbr))
         extend_size_x = max(max_xtl - obj_anchor.get("xtl") + self.hmi_crop_margin,  obj_anchor.get("xbr") + self.hmi_crop_margin - min_xbr, 0)
         extend_size_y = max(max_ytl - obj_anchor.get("ytl") + self.hmi_crop_margin,  obj_anchor.get("ybr") + self.hmi_crop_margin - min_ybr, 0)
-        # print(extend_size, video_res.get("y") - min_ybr, max_ytl)
-        # if extend_size < min(video_res.get("y") - min_ybr, max_ytl):
+
         if extend_size_x == 0 and extend_size_y == 0:
             out_anchor = {
                 "xbr": int(min_xbr),
@@ -355,7 +335,6 @@ class PIERas():
                 "ytl": 0,
             }
             print("out of crop size")
-            # print(out_anchor.get("xbr") - out_anchor.get("xtl"), out_anchor.get("ybr") - out_anchor.get("ytl"))
 
         return out_anchor
 
@@ -422,13 +401,19 @@ class PIERas():
             self.log[-1][8] = self.target_state
         print("saved")
 
-    def play(self, database, intention_value):
+    def play(self, database):
 
         # init variables
         self.frame_count = 0
         self.start_time = time.time()
-        self.target_state = -1
-        print("id:{}, prediction:{}, GT:{}, cross:{}".format(database.get("id"), database.get("results"), database.get("likelihood"), database.get("state")))
+        if self.first_state == "neutral":
+            self.target_state = -1
+        elif self.first_state == "prediction":
+            self.target_state = database.get("likelihood") < 0.5
+        elif self.first_state == "result":
+            self.target_state = 0 if database.get("state") else 1
+
+        print("id:{}, int_prediction:{}, GT:{}".format(database.get("id"), database.get("likelihood"), database.get("state")))
         # init log
         self.log.append([
             database.get("id"), # id
@@ -442,7 +427,6 @@ class PIERas():
             self.target_state, # last_state cross/green:1, stop/red:0, None:-1
             ])
 
-        print(database.get("video_file"))
         video = self.getVideo(database.get("video_file"))
         video.set(cv2.CAP_PROP_POS_FRAMES, database.get("start_frame"))
         ret, frame = video.read()
@@ -506,17 +490,17 @@ if __name__ == "__main__":
     # with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/database_test.pkl", 'rb') as f:
     with open("./data/PIE_data/experiment/database.pkl", 'rb') as f:
         database = pickle.load(f)
-    ids = random.choices(list(database.keys()), k=100)
-    # ids = ["3_9_582_12.0"]
+
+    playlist = pd.read_csv("/home/kuriatsu/Dropbox/data/pie202203/false_playlist.csv")
+    ids = playlist[playlist.task=="tl"].id
+    # ids.sort()
     # print(ids)
-
-    # with open("/media/kuriatsu/SamsungKURI/PIE_data/extracted_data/playlist/mistake_playlilst.csv", "r") as f:
-    #     reader = csv.reader(f)
-    #     for row in reader:
-    #         ids = row
-
-    with PIERas("int") as pie_ras:
+    with PIERas("tl", "result") as pie_ras:
         for id in ids:
-            if id.rsplit("_", 1)[0].endswith("int"):
-                print(id.rsplit("_", 1)[0])
-                pie_ras.play(database.get(id), "result")
+            try:
+                print(playlist[playlist.id == id])
+                pie_ras.play(database.get(id))
+            except KeyboardInterrupt:
+                break
+            except:
+                pass

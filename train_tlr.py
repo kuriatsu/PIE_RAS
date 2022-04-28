@@ -6,6 +6,7 @@ from keras.layers import Dropout, Flatten, Dense
 from keras.models import Sequential
 from keras.layers.normalization import BatchNormalization
 from keras.callbacks import ModelCheckpoint
+import numpy as np
 import pickle
 
 def model():
@@ -70,10 +71,13 @@ def main():
         elif data.get("set") in image_set_nums.get("val"):
             x_valid.append(data.get("image"))
             y_valid.append(data.get("state"))
+        elif data.get("set") in image_set_nums.get("test"):
+            x_test.append(data.get("image"))
+            y_test.append(data.get("state"))
 
-    print("len", len(y_train), len(x_train[0]), len(x_train[0][0]))
-    train(x_train, y_train, x_valid, y_valid)
-    test(x_test, y_test)
+    print("len", len(np.array(y_test)), len(x_test[0]), len(x_test[0][0]))
+    # train(np.array(x_train), np.array(y_train), np.array(x_valid), np.array(y_valid))
+    test(np.array(x_test), np.array(y_test))
 
 if __name__ == "__main__":
     main()
