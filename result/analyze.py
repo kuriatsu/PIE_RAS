@@ -45,6 +45,8 @@ tl_black_list = [
 "3_16_256tl",
 "3_16_257tl",
 ]
+opposite_anno_list = ["3_16_259tl", "3_16_258tl", "3_16_249tl"]
+
 log_data = None
 data_path = "/home/kuriatsu/Dropbox/data/pie202203"
 for file in glob.glob(os.path.join(data_path, "log*.csv")):
@@ -63,11 +65,19 @@ for file in glob.glob(os.path.join(data_path, "log*.csv")):
             row.last_state = -2
         if row.last_state == -1:
             correct_list.append(-1)
-        elif row.last_state == row.state:
-            correct_list.append(0)
+        elif int(row.last_state) == int(row.state):
+            if row.id in opposite_anno_list:
+                correct_list.append(1)
+            else:
+                correct_list.append(0)
         else:
-            correct_list.append(1)
+            if row.id in opposite_anno_list:
+                correct_list.append(0)
+            else:
+                correct_list.append(1)
+
     buf["correct"] = correct_list
+    len(correct_list)
     if log_data is None:
         log_data = buf
     else:
@@ -107,18 +117,26 @@ plt.show()
 ###########################################
 
 task_list = {"int": "crossing intention", "tl": "traffic light", "traj":"trajectory"}
-id_data = pd.DataFrame(columns=["id", "task", "acc", "int_length", "missing"])
+id_data = pd.DataFrame(columns=["id", "task", "false_rate", "missing", "total"])
 for id in log_data.id.drop_duplicates():
     for task in log_data.task.drop_duplicates():
         for length in log_data.int_length.drop_duplicates():
             target = log_data[(log_data.id == id) & (log_data.task == task) & (log_data.int_length == length)]
             # acc = len(target[target.correct == 1])/(len(target))
-            acc = len(target[target.correct == 0])
-            if acc > 1:
-                print(id)
+            total = len(target)
+            name = id.replace("tl","")+task+"_"+str(length)
+            if len(target) > 0:
+                false_rate = len(target[target.correct == 0])/len(target)
+            else:
+                false_rate = 0.0
+
             missing = len(target[target.correct == -1])
-            buf = pd.DataFrame([(id, task_list.get(task), acc, length, missing)], columns=id_data.columns)
+            buf = pd.DataFrame([(name, task, false_rate, missing, total)], columns=id_data.columns)
             id_data = pd.concat([id_data, buf])
 
+pd.set_option("max_rows", 100)
+sort_val = id_data.sort_values(["false_rate","total"], ascending=False)
+false_playlist = sort_val[(sort_val.false_rate>0.0)&(sort_val.total>1)]
+false_playlist.to_csv("/home/kuriatsu/Dropbox/data/pie202203/false_playlist.csv")
 
-sns.barplot(x="id", y="acc", hue="int_length", data=id_data)
+# sns.barplot(x="id", y="acc", hue="int_length", data=id_data)

@@ -42,7 +42,8 @@ def main(annotation_file, base_dir, set, out_data):
     for track in annt_root.iter("track"):
         if track.get("label") != "traffic_light":
             continue
-        for box in track.iter("box"):
+
+        for i, box in enumerate(track.iter("box")):
             print(box.get("frame"))
             video.set(cv2.CAP_PROP_POS_FRAMES, float(box.get("frame")))
             ret, frame = video.read()
@@ -81,9 +82,21 @@ def main(annotation_file, base_dir, set, out_data):
                 "video" : clip_name,
             }
             out_data.append(buf_data)
+
+            if set == "set03" and i == len(box)-1:
+                buf_data = {
+                    "image" : std_img,
+                    "state" : state,
+                    "id"    : id,
+                    "set"   : "test",
+                    "video" : clip_name,
+                }
+                print("test")
+                out_data.append(buf_data)
             # cv2.imshow("tl", std_img)
             # cv2.waitKey(1)
             # print(state)
+
 
 if __name__ == "__main__":
     base_dir = "/media/kuriatsu/InternalHDD/PIE"
