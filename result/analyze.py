@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import csv
 import glob
+import scikit_posthocs as sp
+from scipy import stats
 import os
 sns.set(context='paper', style='whitegrid')
 hue_order = ["traffic light", "crossing intention", "trajectory"]
@@ -307,4 +309,38 @@ ax.legend(bbox_to_anchor=(0.0, 1.0), loc='lower left', fontsize=14)
 ax.set_xlabel("scale", fontsize=18)
 ax.set_ylabel("score (lower is better)", fontsize=18)
 ax.tick_params(labelsize=14)
+plt.show()
+
+###############################################
+# necessary time
+###############################################
+time = pd.read_csv("/home/kuriatsu/Dropbox/documents/subjective_time.csv")
+fig, ax = plt.subplots()
+# mean_list = [
+#     time[time.type=="crossing intention"].ideal_time.mean(),
+#     time[time.type=="trajectory"].ideal_time.mean(),
+#     time[time.type=="traffic light"].ideal_time.mean(),
+# ]
+# sem_list = [
+#     time[time.type=="crossing intention"].ideal_time.sem(),
+#     time[time.type=="trajectory"].ideal_time.sem(),
+#     time[time.type=="traffic light"].ideal_time.sem(),
+# ]
+_, norm_p = stats.shapiro(time.ideal_time.dropna())
+_, var_p = stats.levene(
+    time[time.type == 'crossing intention'].ideal_time.dropna(),
+    time[time.type == 'trajectory'].ideal_time.dropna(),
+    time[time.type == 'traffic light'].ideal_time.dropna(),
+    center='median'
+    )
+
+if norm_p < 0.05 or var_p < 0.05:
+    print('steel-dwass\n', sp.posthoc_dscf(time, val_col='ideal_time', group_col='type'))
+else:
+    multicomp_result = multicomp.MultiComparison(np.array(time.dropna(how='any').ideal_time, dtype="float64"), time.dropna(how='any').type)
+    print('levene', multicomp_result.tukeyhsd().summary())
+
+sns.pointplot(x="type", y="ideal_time", hue="type", hue_order=hue_order, data=time, join=False, ax=ax, capsize=0.1, ci=95)
+ax.set_ylim(0.5,3.5)
+plt.yticks([1, 2, 3, 4], ["<3", "3-5", "5-8", "8<"])
 plt.show()
