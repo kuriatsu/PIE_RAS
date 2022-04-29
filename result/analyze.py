@@ -101,14 +101,26 @@ subject_data.acc = subject_data.acc * 100
 subject_data.missing = subject_data.missing * 100
 # sns.barplot(x="task", y="acc", hue="int_length", data=subject_data, ci="sd")
 # sns.barplot(x="task", y="acc", data=subject_data, ci="sd")
-fig, ax = plt.subplots()
-sns.pointplot(x="int_length", y="missing", data=subject_data, hue="task", hue_order=hue_order, ax = ax, capsize=0.1, ci=95)
-ax.set_ylim(0.0, 100.0)
-ax.set_xlabel("intervention time [s]", fontsize=18)
-ax.set_ylabel("intervention missing rate [%]", fontsize=18)
-ax.tick_params(labelsize=14)
-ax.legend(fontsize=14)
-plt.show()
+
+################################################
+print("check intervene acc")
+################################################
+for length in subject_data.int_length.drop_duplicates():
+    print(f"acc : length={length}")
+    target_df = subject_data[subject_data.int_length == length]
+    _, norm_p = stats.shapiro(target_df.acc.dropna())
+    _, var_p = stats.levene(
+        target_df[target_df.task == 'int'].acc.dropna(),
+        target_df[target_df.task == 'traj'].acc.dropna(),
+        target_df[target_df.task == 'tl'].acc.dropna(),
+        center='median'
+        )
+
+    if norm_p < 0.05 or var_p < 0.05:
+        print('steel-dwass\n', sp.posthoc_dscf(target_df, val_col='acc', group_col='type'))
+    else:
+        multicomp_result = multicomp.MultiComparison(np.array(target_df.dropna(how='any').acc, dtype="float64"), target_df.dropna(how='any').type)
+        print('levene', multicomp_result.tukeyhsd().summary())
 
 fig, ax = plt.subplots()
 sns.pointplot(x="int_length", y="acc", data=subject_data, hue="task", hue_order=hue_order, ax=ax, capsize=0.1, ci=95)
@@ -118,6 +130,36 @@ ax.set_ylabel("intervention accuracy [%]", fontsize=18)
 ax.tick_params(labelsize=14)
 ax.legend(fontsize=14)
 plt.show()
+
+################################################
+print("check miss rate")
+################################################
+for length in subject_data.int_length.drop_duplicates():
+    print(f"miss : length={length}")
+    target_df = subject_data[subject_data.int_length == length]
+    _, norm_p = stats.shapiro(target_df.missing.dropna())
+    _, var_p = stats.levene(
+        target_df[target_df.task == 'int'].missing.dropna(),
+        target_df[target_df.task == 'traj'].missing.dropna(),
+        target_df[target_df.task == 'tl'].missing.dropna(),
+        center='median'
+        )
+
+    if norm_p < 0.05 or var_p < 0.05:
+        print('steel-dwass\n', sp.posthoc_dscf(target_df, val_col='missing', group_col='type'))
+    else:
+        multicomp_result = multicomp.MultiComparison(np.array(target_df.dropna(how='any').missing, dtype="float64"), target_df.dropna(how='any').type)
+        print('levene', multicomp_result.tukeyhsd().summary())
+
+fig, ax = plt.subplots()
+sns.pointplot(x="int_length", y="missing", data=subject_data, hue="task", hue_order=hue_order, ax = ax, capsize=0.1, ci=95)
+ax.set_ylim(0.0, 100.0)
+ax.set_xlabel("intervention time [s]", fontsize=18)
+ax.set_ylabel("intervention missing rate [%]", fontsize=18)
+ax.tick_params(labelsize=14)
+ax.legend(fontsize=14)
+plt.show()
+
 
 target = subject_data[subject_data.task == "crossing intention"]
 print("int acc mean: 1.0:{}, 3.0:{}, 5.0:{}, 8.0:{}\n std {} {} {} {}".format(
