@@ -160,7 +160,9 @@ ax.tick_params(labelsize=14)
 ax.legend(fontsize=14)
 plt.show()
 
-
+#####################################
+# mean val show
+#####################################
 target = subject_data[subject_data.task == "crossing intention"]
 print("int acc mean: 1.0:{}, 3.0:{}, 5.0:{}, 8.0:{}\n std {} {} {} {}".format(
     target[target.int_length == 1.0].acc.mean(),
@@ -268,7 +270,35 @@ false_playlist.to_csv("/home/kuriatsu/Dropbox/data/pie202203/false_playlist.csv"
 
 workload = pd.read_csv("{}/workload.csv".format(data_path))
 workload.satisfy = 10-workload.satisfy
-workload_melted = pd.melt(workload, id_vars=["subject", "type"], var_name="scale", value_name="rate")
+workload_melted = pd.melt(workload, id_vars=["subject", "type"], var_name="scale", value_name="score")
+#### nasa-tlx ####
+for item in workload_melted.scale.drop_duplicates():
+    print(item)
+    _, norm_p1 = stats.shapiro(workload[workload.type == "int"][item])
+    _, norm_p2 = stats.shapiro(workload[workload.type == "traj"][item])
+    _, norm_p3 = stats.shapiro(workload[workload.type == "tl"][item])
+    _, var_p = stats.levene(
+        workload[workload.experiment_type == "int"][item],
+        workload[workload.experiment_type == "traj"][item],
+        workload[workload.experiment_type == "tl"][item],
+        center='median'
+        )
+
+    if norm_p1 < 0.05 or norm_p2 < 0.05 or norm_p3 < 0.05 or norm_p4 < 0.05:
+        _, anova_p = stats.friedmanchisquare(
+            workload[workload.experiment_type == "int"][item],
+            workload[workload.experiment_type == "traj"][item],
+            workload[workload.experiment_type == "tl"][item],
+        )
+        print("anova(friedman test)", anova_p)
+        if anova_p < 0.05:
+            print(sp.posthoc_conover(workload, val_col=item, group_col="type"))
+    else:
+        melted_df = pd.melt(nasa_df, id_vars=["name", "experiment_type"],  var_name="type", value_name="rate")
+        aov = stats_anova.AnovaRM(workload_melted[workload_melted.type == item], "score", "subject", ["type"])
+        print("reperted anova: ", aov.fit())
+        multicomp_result = multicomp.MultiComparison(workload_melted[item], nasa_df.type)
+        print(multicomp_result.tukeyhsd().summary())
 
 fig, ax = plt.subplots()
 sns.barplot(x="scale", y="rate", data=workload_melted, hue="type", hue_order=hue_order, ax=ax)
