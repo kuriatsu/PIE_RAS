@@ -1,6 +1,20 @@
 # PIE_RAS
 Recognition Assistance Interface test tools for PIE dataset
 
+<table>
+    <tr>
+        <td>Intention</td>
+        <td>Trajectory</td>
+        <td>Traffic Light</td>
+    <tr>
+        <td><img src="https://user-images.githubusercontent.com/38074802/167537319-648eb6c3-fd0c-45bb-8d3c-4e4889887395.png"></td>
+        <td><img src="https://user-images.githubusercontent.com/38074802/167537274-77fcb4bc-1d93-471d-b5fa-737496622a98.png"></td>
+        <td><img src="https://user-images.githubusercontent.com/38074802/167537123-ca9877d0-7c19-4fed-9a9d-b954ae2472a5.png"></td>
+    </tr>
+</table>
+
+
+
 ## Requirement
 ### Python
 opencv-python, pickle, xml, multiprocessing
@@ -37,8 +51,43 @@ git clone git@github.com:kuriatsu/PIEPredict.git
 python3 train_test.py 2
 ```
 
+Get traffic light detection result (at the last frame of each traffic light annotation)  
+The result will be extracted to `<path_to_the_root_folder>/tlr_result`
+```bash
+python3 train_tlr.py
+```
+
 Rearange dataset to reduce processing load, result will be extracted to `<path_to_the_root_folder>/extracted_data/database.pkl`
 ```
 python3 pie_extract_clip.py
 ```
 
+![pie_experiment_design_comp](https://user-images.githubusercontent.com/38074802/167537879-658ba6ec-2204-4e65-b0b9-4573a22870a0.png)
+
+
+
+## RUN
+1. change subject name and experiment type from [tl, int, traj] in *pie_experiment.py*
+2. run command
+    ```bash
+    python3 pie_experiment.py
+    ```
+3. Experiment
+
+![pie_experiment_setup_cmp](https://user-images.githubusercontent.com/38074802/167537869-ca5aa073-dee4-4380-b530-2f40cd36d36e.png)
+
+## Analyze
+* Intervention time and accuracy
+```bash
+python3 result/analyze.py
+```
+
+* draw  PR curve of the predictions
+```bash
+python3 result/predict_analyze.py
+```
+
+* draw SDT curve
+```bash
+python3 result/sdt.py
+```
