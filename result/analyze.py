@@ -333,7 +333,6 @@ handles, labels = axes.get_legend_handles_labels()
 axes.legend(handles[::4], ["CR", "FA", "miss", "hit", "no_int"], bbox_to_anchor=(1.0, 1.0), loc='upper left', fontsize=14)
 plt.show()
 
-
 ###############################################
 # Workload
 ###############################################
@@ -350,3 +349,54 @@ ax.set_xlabel("scale", fontsize=18)
 ax.set_ylabel("score (lower is better)", fontsize=18)
 ax.tick_params(labelsize=14)
 plt.show()
+
+###############################################
+# compare prediction and intervention
+###############################################
+with open("/home/kuriatsu/Dropbox/data/pie202203/database.pkl", "rb") as f:
+    database = pickle.load(f)
+
+tl_result = pd.read_csv("/home/kuriatsu/Dropbox/data/pie202203/tlr_result.csv")
+
+overall_result = pd.DataFrame(columns=["id", "task", "subject", "gt", "int", "prediction"])
+
+log_data = None
+data_path = "/home/kuriatsu/Dropbox/data/pie202203"
+for file in glob.glob(os.path.join(data_path, "log*.csv")):
+    buf = pd.read_csv(file)
+    filename =file.split("/")[-1]
+    count = float(filename.replace("log_data_", "").split("_")[-1].replace(".csv", ""))
+    print("{}".format(filename))
+
+    if count in [0, 1, 2]:
+        print("skipped")
+        continue
+
+    subject = filename.replace("log_data_", "").split("_")[0]
+    task = filename.replace("log_data_", "").split("_")[1]
+    for idx, row in buf.iterrows():
+
+        if task != "tl":
+            database_id = row.id+task+"_"+str(float(row.int_length))
+            prediction = (database[database_id].get("likelihood") <= 0.5)
+            gt = False if row.state else True
+        else:
+            database_id = row.id+"_"+str(float(row.int_length))
+            prediction = 1 if float(tl_result[tl_result.id == row.id].result) == 2 else 0
+            gt = False if row.state else True
+
+        if row.id in tl_black_list:
+            intervention = -2
+        if row.last_state == -1: # no intervention
+            intervention = -1
+
+        else:
+            if row.id in opposite_anno_list:
+                intervention = False if row.last_state else True
+            else:
+                intervention = row.last_state
+
+        buf = pd.DataFrame([(row.id, task, subject, gt, int(intervention), prediction)], columns = overall_result.columns)
+        overall_result = pd.concat([overall_result, buf])
+
+overall_result.to_csv("/home/kuriatsu/Dropbox/data/pie202203/acc.csv")
