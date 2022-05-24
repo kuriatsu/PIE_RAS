@@ -396,7 +396,7 @@ for file in glob.glob(os.path.join(data_path, "log*.csv")):
             else:
                 intervention = row.last_state
 
-        buf = pd.DataFrame([(row.id, task, subject, gt, int(intervention), prediction)], columns = overall_result.columns)
+        buf = pd.DataFrame([(row.id, task, subject, int(gt), int(intervention), int(prediction))], columns = overall_result.columns)
         overall_result = pd.concat([overall_result, buf])
 
 overall_result.to_csv("/home/kuriatsu/Dropbox/data/pie202203/acc.csv")
