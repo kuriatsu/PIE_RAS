@@ -150,20 +150,40 @@ for length in subject_data.int_length.drop_duplicates():
     target_df = subject_data[subject_data.int_length == length]
     _, norm_p = stats.shapiro(target_df.acc.dropna())
     _, var_p = stats.levene(
-        target_df[target_df.task == 'int'].acc.dropna(),
-        target_df[target_df.task == 'traj'].acc.dropna(),
-        target_df[target_df.task == 'tl'].acc.dropna(),
+        target_df[target_df.task == 'trajectory'].acc.dropna(),
+        target_df[target_df.task == 'crossing intention'].acc.dropna(),
+        target_df[target_df.task == 'traffic light'].acc.dropna(),
         center='median'
         )
 
+    # if norm_p < 0.05 or var_p < 0.05:
+    #     print(f"norm:{norm_p}, var:{var_p}")
+    #     print('steel-dwass\n', sp.posthoc_dscf(target_df, val_col='acc', group_col='task'))
+    # else:
+    #     multicomp_result = multicomp.MultiComparison(np.array(target_df.dropna(how='any').acc, dtype="float64"), target_df.dropna(how='any').type)
+    #     print(f"norm:{norm_p}, var:{var_p}")
+    #     print('levene', multicomp_result.tukeyhsd().summary())
     if norm_p < 0.05 or var_p < 0.05:
-        print('steel-dwass\n', sp.posthoc_dscf(target_df, val_col='acc', group_col='type'))
+        _, anova_p = stats.friedmanchisquare(
+            target_df[target_df.task == "trajectory"].acc,
+            target_df[target_df.task == "crossing intention"].acc,
+            target_df[target_df.task == "traffic light"].acc,
+        )
+        print(f"norm:{norm_p}, var:{var_p}")
+        print("anova(friedman test)", anova_p)
+        if anova_p < 0.05:
+            print('conover\n', sp.posthoc_conover(target_df, val_col="acc", group_col="task"))
+            print('steel-dwass\n', sp.posthoc_dscf(target_df, val_col='acc', group_col='task'))
     else:
-        multicomp_result = multicomp.MultiComparison(np.array(target_df.dropna(how='any').acc, dtype="float64"), target_df.dropna(how='any').type)
-        print('levene', multicomp_result.tukeyhsd().summary())
+        # melted_df = pd.melt(target_df, id_vars=["subject", "acc", "int_length"],  var_name="task", value_name="rate")
+        aov = stats_anova.AnovaRM(melted_df, "missing", "subject", ["task"])
+        print(f"norm:{norm_p}, var:{var_p}")
+        print("reperted anova: ", aov.fit())
+        multicomp_result = multicomp.MultiComparison(melted_df[length], nasa_df.task)
+        print(melted_df.tukeyhsd().summary())
 
 fig, ax = plt.subplots()
-sns.pointplot(x="int_length", y="acc", data=subject_data, hue="task", hue_order=hue_order, ax=ax, capsize=0.1, ci=95)
+sns.pointplot(x="int_length", y="acc", data=subject_data, hue="task", hue_order=hue_order, ax=ax, capsize=0.1, ci="sd")
 ax.set_ylim(0.0, 100.0)
 ax.set_xlabel("intervention time [s]", fontsize=18)
 ax.set_ylabel("intervention accuracy [%]", fontsize=18)
@@ -179,17 +199,38 @@ for length in subject_data.int_length.drop_duplicates():
     target_df = subject_data[subject_data.int_length == length]
     _, norm_p = stats.shapiro(target_df.missing.dropna())
     _, var_p = stats.levene(
-        target_df[target_df.task == 'int'].missing.dropna(),
-        target_df[target_df.task == 'traj'].missing.dropna(),
-        target_df[target_df.task == 'tl'].missing.dropna(),
+        target_df[target_df.task == 'trajectory'].missing.dropna(),
+        target_df[target_df.task == 'crossing intention'].missing.dropna(),
+        target_df[target_df.task == 'traffic light'].missing.dropna(),
         center='median'
         )
 
+    # if norm_p < 0.05 or var_p < 0.05:
+    #     print(f"norm:{norm_p}, var:{var_p}")
+    #     print('steel-dwass\n', sp.posthoc_dscf(target_df, val_col='missing', group_col='task'))
+    # else:
+    #     multicomp_result = multicomp.MultiComparison(np.array(target_df.dropna(how='any').missing, dtype="float64"), target_df.dropna(how='any').type)
+    #     print(f"norm:{norm_p}, var:{var_p}")
+    #     print('levene', multicomp_result.tukeyhsd().summary())
+
     if norm_p < 0.05 or var_p < 0.05:
-        print('steel-dwass\n', sp.posthoc_dscf(target_df, val_col='missing', group_col='type'))
+        _, anova_p = stats.friedmanchisquare(
+            target_df[target_df.task == "trajectory"].missing,
+            target_df[target_df.task == "crossing intention"].missing,
+            target_df[target_df.task == "traffic light"].missing,
+        )
+        print(f"norm:{norm_p}, var:{var_p}")
+        print("anova(friedman test)", anova_p)
+        if anova_p < 0.05:
+            print('steel-dwass\n', sp.posthoc_dscf(target_df, val_col='missing', group_col='task'))
+            print('conover\n', sp.posthoc_conover(target_df, val_col="missing", group_col="task"))
     else:
-        multicomp_result = multicomp.MultiComparison(np.array(target_df.dropna(how='any').missing, dtype="float64"), target_df.dropna(how='any').type)
-        print('levene', multicomp_result.tukeyhsd().summary())
+        # melted_df = pd.melt(target_df, id_vars=["subject", "acc", "int_length"],  var_name="task", value_name="rate")
+        aov = stats_anova.AnovaRM(melted_df, "missing", "subject", ["task"])
+        print(f"norm:{norm_p}, var:{var_p}")
+        print("reperted anova: ", aov.fit())
+        multicomp_result = multicomp.MultiComparison(melted_df[length], nasa_df.task)
+        print(melted_df.tukeyhsd().summary())
 
 fig, ax = plt.subplots()
 sns.pointplot(x="int_length", y="missing", data=subject_data, hue="task", hue_order=hue_order, ax = ax, capsize=0.1, ci=95)
@@ -347,34 +388,34 @@ workload_melted = pd.melt(workload, id_vars=["subject", "type"], var_name="scale
 #### nasa-tlx ####
 for item in workload_melted.scale.drop_duplicates():
     print(item)
-    _, norm_p1 = stats.shapiro(workload[workload.type == "int"][item])
-    _, norm_p2 = stats.shapiro(workload[workload.type == "traj"][item])
-    _, norm_p3 = stats.shapiro(workload[workload.type == "tl"][item])
+    _, norm_p1 = stats.shapiro(workload[workload.type == "trajectory"][item])
+    _, norm_p2 = stats.shapiro(workload[workload.type == "crossing intention"][item])
+    _, norm_p3 = stats.shapiro(workload[workload.type == "traffic light"][item])
     _, var_p = stats.levene(
-        workload[workload.experiment_type == "int"][item],
-        workload[workload.experiment_type == "traj"][item],
-        workload[workload.experiment_type == "tl"][item],
+        workload[workload.type == "trajectory"][item],
+        workload[workload.type == "crossing intention"][item],
+        workload[workload.type == "traffic light"][item],
         center='median'
         )
 
     if norm_p1 < 0.05 or norm_p2 < 0.05 or norm_p3 < 0.05 or norm_p4 < 0.05:
         _, anova_p = stats.friedmanchisquare(
-            workload[workload.experiment_type == "int"][item],
-            workload[workload.experiment_type == "traj"][item],
-            workload[workload.experiment_type == "tl"][item],
+            workload[workload.type == "trajectory"][item],
+            workload[workload.type == "crossing intention"][item],
+            workload[workload.type == "traffic light"][item],
         )
         print("anova(friedman test)", anova_p)
         if anova_p < 0.05:
             print(sp.posthoc_conover(workload, val_col=item, group_col="type"))
     else:
-        melted_df = pd.melt(nasa_df, id_vars=["name", "experiment_type"],  var_name="type", value_name="rate")
+        melted_df = pd.melt(nasa_df, id_vars=["name", "experiment_type"],  var_name="type", value_name="score")
         aov = stats_anova.AnovaRM(workload_melted[workload_melted.type == item], "score", "subject", ["type"])
         print("reperted anova: ", aov.fit())
         multicomp_result = multicomp.MultiComparison(workload_melted[item], nasa_df.type)
         print(multicomp_result.tukeyhsd().summary())
 
 fig, ax = plt.subplots()
-sns.barplot(x="scale", y="rate", data=workload_melted, hue="type", hue_order=hue_order, ax=ax)
+sns.barplot(x="scale", y="score", data=workload_melted, hue="type", hue_order=hue_order, ax=ax)
 ax.set_ylim(0, 10)
 ax.legend(bbox_to_anchor=(0.0, 1.0), loc='lower left', fontsize=14)
 ax.set_xlabel("scale", fontsize=18)
