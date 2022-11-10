@@ -54,6 +54,7 @@ python3 train_test.py 2
 Get traffic light detection result (at the last frame of each traffic light annotation)  
 The result will be extracted to `<path_to_the_root_folder>/tlr_result`
 ```bash
+python3 extract_data.py
 python3 train_tlr.py
 ```
 
